@@ -541,6 +541,11 @@
                                     <FontIcon Glyph="&#xE8DA;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
                                 </MenuFlyoutItem.Icon>
                             </MenuFlyoutItem>
+                            <MenuFlyoutItem Text="{x:Bind strings:Resources.SendToPaperless}" Width="{x:Bind ProjectFlyoutWidth, Mode=OneWay}" Command="{x:Bind ViewModel.SendToPaperlessAsyncCommand}">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xE898;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
                             <MenuFlyoutItem Text="{x:Bind strings:Resources.ExportAllPagesAsSeparatePDFs}" Width="{x:Bind ProjectFlyoutWidth, Mode=OneWay}" Visibility="{x:Bind ViewModel.CurrentProject.IsPdf, Mode=OneWay}" Command="{x:Bind ViewModel.ExportSelectedPagesAsSeparatePDFAsyncCommand}">
                                 <MenuFlyoutItem.Icon>
                                     <FontIcon Glyph="&#xEA3D;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />

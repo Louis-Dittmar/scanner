@@ -2234,4 +2234,188 @@ Rest assured that your scans are never included in these reports.</value>
     <value>Some of your changes require an app restart.</value>
     <comment>The message of the notice in settings indicating that the app needs to be restarted for some changes to be applied.</comment>
   </data>
+  <data name="SendToPaperless" xml:space="preserve">
+    <value>Send to Paperless</value>
+    <comment>Project menu item that uploads the saved file(s) to a Paperless-ngx server.</comment>
+  </data>
+  <data name="SettingsPaperlessHeading" xml:space="preserve">
+    <value>Paperless-ngx</value>
+    <comment>Heading of the Paperless-ngx settings page.</comment>
+  </data>
+  <data name="SettingsPaperlessDescription" xml:space="preserve">
+    <value>Send your scans directly to your Paperless-ngx server, including title, date, tags and more.</value>
+    <comment>Description on the Paperless-ngx settings page.</comment>
+  </data>
+  <data name="PaperlessServerUrlHeading" xml:space="preserve">
+    <value>Server address</value>
+    <comment>Setting header for the Paperless-ngx server address.</comment>
+  </data>
+  <data name="PaperlessServerUrlBody" xml:space="preserve">
+    <value>For example http://192.168.1.10:8000 or https://paperless.example.com</value>
+    <comment>Setting description for the Paperless-ngx server address.</comment>
+  </data>
+  <data name="PaperlessTokenHeading" xml:space="preserve">
+    <value>API token</value>
+    <comment>Setting header for the Paperless-ngx API token.</comment>
+  </data>
+  <data name="PaperlessTokenBody" xml:space="preserve">
+    <value>Create a token in Paperless-ngx under "My Profile". It's stored securely in Windows.</value>
+    <comment>Setting description for the Paperless-ngx API token.</comment>
+  </data>
+  <data name="PaperlessTokenPlaceholder" xml:space="preserve">
+    <value>Paste token</value>
+    <comment>Placeholder of the empty token box.</comment>
+  </data>
+  <data name="PaperlessTokenStoredPlaceholder" xml:space="preserve">
+    <value>Saved – enter a new token to replace it</value>
+    <comment>Placeholder of the token box when a token is already stored.</comment>
+  </data>
+  <data name="PaperlessSaveConnection" xml:space="preserve">
+    <value>Save</value>
+    <comment>Button that tests and saves the Paperless-ngx connection.</comment>
+  </data>
+  <data name="PaperlessTestConnection" xml:space="preserve">
+    <value>Test connection</value>
+    <comment>Button that tests the Paperless-ngx connection.</comment>
+  </data>
+  <data name="PaperlessRemoveConnection" xml:space="preserve">
+    <value>Remove connection</value>
+    <comment>Button that removes the stored Paperless-ngx connection.</comment>
+  </data>
+  <data name="PaperlessConnectionSuccess" xml:space="preserve">
+    <value>Connected successfully</value>
+    <comment>Shown after a successful connection test.</comment>
+  </data>
+  <data name="PaperlessConfigurationSaved" xml:space="preserve">
+    <value>Connection saved</value>
+    <comment>Shown after the connection has been saved.</comment>
+  </data>
+  <data name="PaperlessConfigurationRemoved" xml:space="preserve">
+    <value>Connection removed</value>
+    <comment>Shown after the connection has been removed.</comment>
+  </data>
+  <data name="PaperlessOcrHintHeading" xml:space="preserve">
+    <value>Text recognition</value>
+    <comment>Header of the hint about OCR and Paperless-ngx.</comment>
+  </data>
+  <data name="PaperlessOcrHintBody" xml:space="preserve">
+    <value>By default, Paperless-ngx keeps text that Scanner already recognized and only runs OCR on pages without text. If your server uses OCR mode "redo" or "force", it replaces Scanner's text with its own.</value>
+    <comment>Description of the hint about OCR and Paperless-ngx.</comment>
+  </data>
+  <data name="PaperlessErrorMissingInput" xml:space="preserve">
+    <value>Please enter the server address and an API token.</value>
+    <comment>Error if server address or token is missing.</comment>
+  </data>
+  <data name="PaperlessErrorInvalidUrl" xml:space="preserve">
+    <value>The server address isn't valid.</value>
+    <comment>Error for an invalid server address.</comment>
+  </data>
+  <data name="PaperlessErrorUnreachable" xml:space="preserve">
+    <value>The server couldn't be reached. Check the address and your network connection.</value>
+    <comment>Error if the server can't be reached.</comment>
+  </data>
+  <data name="PaperlessErrorTimeout" xml:space="preserve">
+    <value>The server took too long to respond.</value>
+    <comment>Error if the server times out.</comment>
+  </data>
+  <data name="PaperlessErrorUnauthorized" xml:space="preserve">
+    <value>The API token was rejected.</value>
+    <comment>Error if the token is invalid or lacks permissions.</comment>
+  </data>
+  <data name="PaperlessErrorNotPaperless" xml:space="preserve">
+    <value>The server responded, but doesn't seem to be Paperless-ngx.</value>
+    <comment>Error if the server isn't Paperless-ngx.</comment>
+  </data>
+  <data name="PaperlessErrorUnknown" xml:space="preserve">
+    <value>Something went wrong while communicating with Paperless-ngx.</value>
+    <comment>Generic Paperless-ngx error.</comment>
+  </data>
+  <data name="PaperlessErrorReadingFiles" xml:space="preserve">
+    <value>The saved files couldn't be read.</value>
+    <comment>Error if the project files can't be read for uploading.</comment>
+  </data>
+  <data name="PaperlessUploadDialogHeading" xml:space="preserve">
+    <value>Send to Paperless</value>
+    <comment>Title of the upload dialog.</comment>
+  </data>
+  <data name="PaperlessSend" xml:space="preserve">
+    <value>Send</value>
+    <comment>Primary button of the upload dialog.</comment>
+  </data>
+  <data name="PaperlessLoadingMetadata" xml:space="preserve">
+    <value>Loading data from Paperless-ngx…</value>
+    <comment>Shown while tags etc. are loaded.</comment>
+  </data>
+  <data name="PaperlessMultipleFilesHint" xml:space="preserve">
+    <value>Each file of this project is sent as a separate document with the same details.</value>
+    <comment>Hint in the upload dialog for multi-file projects.</comment>
+  </data>
+  <data name="PaperlessTitle" xml:space="preserve">
+    <value>Title</value>
+    <comment>Header of the title box in the upload dialog.</comment>
+  </data>
+  <data name="PaperlessCreated" xml:space="preserve">
+    <value>Document date</value>
+    <comment>Header of the date picker in the upload dialog.</comment>
+  </data>
+  <data name="PaperlessArchiveSerialNumber" xml:space="preserve">
+    <value>Archive serial number</value>
+    <comment>Header of the ASN box in the upload dialog.</comment>
+  </data>
+  <data name="PaperlessCorrespondent" xml:space="preserve">
+    <value>Correspondent</value>
+    <comment>Header of the correspondent list in the upload dialog.</comment>
+  </data>
+  <data name="PaperlessDocumentType" xml:space="preserve">
+    <value>Document type</value>
+    <comment>Header of the document type list in the upload dialog.</comment>
+  </data>
+  <data name="PaperlessStoragePath" xml:space="preserve">
+    <value>Storage path</value>
+    <comment>Header of the storage path list in the upload dialog.</comment>
+  </data>
+  <data name="PaperlessAutomatic" xml:space="preserve">
+    <value>Automatic</value>
+    <comment>Option that lets Paperless-ngx decide on its own.</comment>
+  </data>
+  <data name="PaperlessTags" xml:space="preserve">
+    <value>Tags</value>
+    <comment>Header of the tag list in the upload dialog.</comment>
+  </data>
+  <data name="PaperlessTagsFilterPlaceholder" xml:space="preserve">
+    <value>Filter tags</value>
+    <comment>Placeholder of the tag filter box.</comment>
+  </data>
+  <data name="PaperlessNoTags" xml:space="preserve">
+    <value>No tags available</value>
+    <comment>Shown if the server has no tags.</comment>
+  </data>
+  <data name="PaperlessUploading" xml:space="preserve">
+    <value>Uploading…</value>
+    <comment>Status while uploading.</comment>
+  </data>
+  <data name="PaperlessProcessing" xml:space="preserve">
+    <value>Paperless-ngx is processing the document…</value>
+    <comment>Status while waiting for Paperless-ngx.</comment>
+  </data>
+  <data name="PaperlessUploadSuccessHeading" xml:space="preserve">
+    <value>Sent to Paperless</value>
+    <comment>Title of the success message.</comment>
+  </data>
+  <data name="PaperlessUploadSuccessBody" xml:space="preserve">
+    <value>The document has been added to Paperless-ngx.</value>
+    <comment>Success message after processing.</comment>
+  </data>
+  <data name="PaperlessUploadPendingBody" xml:space="preserve">
+    <value>Paperless-ngx accepted the document and is still processing it. It will appear shortly.</value>
+    <comment>Shown if processing takes longer than the dialog waits.</comment>
+  </data>
+  <data name="PaperlessUploadFailedHeading" xml:space="preserve">
+    <value>Couldn't send to Paperless</value>
+    <comment>Title of the error message.</comment>
+  </data>
+  <data name="PaperlessOpenInPaperless" xml:space="preserve">
+    <value>Open in Paperless</value>
+    <comment>Link to the uploaded document.</comment>
+  </data>
 </root>

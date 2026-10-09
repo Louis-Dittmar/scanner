@@ -1,0 +1,94 @@
+<settings:SettingsPage
+    x:Class="Scanner.Views.Settings.SettingsViewPaperless"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:settings="using:Scanner.Views.Settings"
+    xmlns:strings="using:Scanner.Resources.Strings"
+    mc:Ignorable="d">
+
+
+    <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - -  RESOURCES  - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+    <settings:SettingsPage.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ms-appx:///StylesDictionary.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </settings:SettingsPage.Resources>
+
+
+    <!-- - - - - - - - - - - - - - - - - - - -  - - - - - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - -  PAGE CONTENT  - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - - - - -  - - - - - - - - - - - - - - - - - - - - -->
+    <Grid x:Name="GridRoot">
+        <ScrollViewer HorizontalScrollMode="Disabled" VerticalScrollMode="Auto" VerticalScrollBarVisibility="Auto">
+            <StackPanel Orientation="Vertical" Spacing="4" Padding="32">
+                <StackPanel.ChildrenTransitions>
+                    <TransitionCollection>
+                        <RepositionThemeTransition IsStaggeringEnabled="False" />
+                    </TransitionCollection>
+                </StackPanel.ChildrenTransitions>
+
+                <TextBlock Text="{x:Bind strings:Resources.SettingsPaperlessHeading}" Margin="0,0,0,8" FontSize="24" Style="{StaticResource BaseTextBlockStyle}" />
+                <TextBlock Text="{x:Bind strings:Resources.SettingsPaperlessDescription}" Margin="0,0,0,16" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                <!-- Server address -->
+                <controls:SettingsCard Header="{x:Bind strings:Resources.PaperlessServerUrlHeading}" Description="{x:Bind strings:Resources.PaperlessServerUrlBody}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE968;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                    </controls:SettingsCard.HeaderIcon>
+
+                    <TextBox Width="280" PlaceholderText="http://192.168.1.10:8000" InputScope="Url"
+                             IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}"
+                             Text="{x:Bind ViewModel.ServerUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                </controls:SettingsCard>
+
+                <!-- API token -->
+                <controls:SettingsCard Header="{x:Bind strings:Resources.PaperlessTokenHeading}" Description="{x:Bind strings:Resources.PaperlessTokenBody}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE8D7;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                    </controls:SettingsCard.HeaderIcon>
+
+                    <PasswordBox x:Name="PasswordBoxToken" Width="280"
+                                 PlaceholderText="{x:Bind ViewModel.TokenPlaceholder, Mode=OneWay}"
+                                 IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}"
+                                 PasswordChanged="PasswordBoxToken_PasswordChanged" />
+                </controls:SettingsCard>
+
+                <!-- Actions -->
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                    <Button Style="{StaticResource AccentButtonStyle}" Content="{x:Bind strings:Resources.PaperlessSaveConnection}"
+                            IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}"
+                            Command="{x:Bind ViewModel.SaveAsyncCommand}" />
+                    <Button Content="{x:Bind strings:Resources.PaperlessTestConnection}"
+                            IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}"
+                            Command="{x:Bind ViewModel.TestConnectionAsyncCommand}" />
+                    <Button Content="{x:Bind strings:Resources.PaperlessRemoveConnection}"
+                            IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.IsConfigured, Mode=OneWay}"
+                            Command="{x:Bind ViewModel.RemoveCommand}" />
+                    <ProgressRing Width="20" Height="20" VerticalAlignment="Center"
+                                  IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                                  Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}" />
+                </StackPanel>
+
+                <InfoBar Margin="0,8,0,0" IsClosable="False"
+                         IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
+                         Severity="{x:Bind ViewModel.StatusSeverity, Mode=OneWay}"
+                         Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
+
+                <!-- Hint about text recognition -->
+                <controls:SettingsCard Margin="0,16,0,0" Header="{x:Bind strings:Resources.PaperlessOcrHintHeading}" Description="{x:Bind strings:Resources.PaperlessOcrHintBody}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE946;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                    </controls:SettingsCard.HeaderIcon>
+                </controls:SettingsCard>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</settings:SettingsPage>

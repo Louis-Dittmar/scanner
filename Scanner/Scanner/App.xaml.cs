@@ -93,6 +93,7 @@ public partial class App : Application
             .AddSingleton<IProjectHistoryService, ProjectHistoryService>()
             .AddSingleton<IKnownScannersService, KnownScannersService>()
             .AddSingleton<ITemplatesService, TemplatesService>()
+            .AddSingleton<IPaperlessService, PaperlessService>()
             .BuildServiceProvider());
 
         WeakReferenceMessenger.Default.Register<MainWindowClosingMessage>(this, (r, m) =>

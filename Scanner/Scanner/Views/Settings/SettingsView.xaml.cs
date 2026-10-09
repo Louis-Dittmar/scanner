@@ -77,6 +77,10 @@ public sealed partial class SettingsView : Page
                 if (FrameContent.Content is not SettingsViewAbout)
                     Navigate(typeof(SettingsViewAbout), transitionInfo);
                 break;
+            case SettingsPageType.Paperless:
+                if (FrameContent.Content is not SettingsViewPaperless)
+                    Navigate(typeof(SettingsViewPaperless), transitionInfo);
+                break;
         }
     }
 

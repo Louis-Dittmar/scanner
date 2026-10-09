@@ -55,6 +55,7 @@ public partial class SettingsViewModel : ObservableRecipient, IDisposable
         new SettingsPageEntry(SettingsPageType.General, "\uE713", Helpers.Helpers.GetLocalized(KeyEnum.SettingsGeneralHeading)),
         new SettingsPageEntry(SettingsPageType.Personalization, "\uE771", Helpers.Helpers.GetLocalized(KeyEnum.SettingsPersonalizationHeading)),
         new SettingsPageEntry(SettingsPageType.Privacy, "\uEA18", Helpers.Helpers.GetLocalized(KeyEnum.SettingsPrivacyHeading)),
+        new SettingsPageEntry(SettingsPageType.Paperless, "\uE898", Helpers.Helpers.GetLocalized(KeyEnum.SettingsPaperlessHeading)),
     ];
 
     public SettingsPageEntry[] FooterSettingsPages =
@@ -352,7 +353,8 @@ public enum SettingsPageType
     Privacy,
     Translations,
     Feedback,
-    About
+    About,
+    Paperless
 }
 
 public record SettingsViewModelIntent(SettingsPageType DisplayedPage);

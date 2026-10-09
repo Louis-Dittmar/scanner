@@ -89,6 +89,7 @@ public sealed partial class ShellView : Page
     {
         this.InitializeComponent();
         ViewModel.LogService?.Log.Information("View loaded");
+        RegisterPaperlessMessages();
 
         if (ViewModel.SettingsService.SettingMirrorAppLayout)
         {
