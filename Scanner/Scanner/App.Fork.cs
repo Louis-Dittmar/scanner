@@ -25,6 +25,14 @@ public partial class App
 
     public static bool IsUiTestMode { get; private set; }
 
+    /// <summary>
+    /// Launch argument of the UI tests: the debug scanner is added on launch and "scans" this image (must be the
+    /// last argument, the path may contain spaces).
+    /// </summary>
+    public const string UiTestScanArgument = "--ui-test-scan=";
+
+    public static string? UiTestScanFile { get; private set; }
+
     public DocumentWindow? DocumentWindow;
 
     /// <summary>
@@ -43,6 +51,10 @@ public partial class App
     {
         if (arguments?.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(UiTestArgument) == true)
             IsUiTestMode = true;
+
+        int scanIndex = arguments?.IndexOf(UiTestScanArgument, StringComparison.Ordinal) ?? -1;
+        if (IsUiTestMode && scanIndex >= 0)
+            UiTestScanFile = arguments![(scanIndex + UiTestScanArgument.Length)..].Trim().Trim('"');
     }
 
     private void InitializeForkFeatures()

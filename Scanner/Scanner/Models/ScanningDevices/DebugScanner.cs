@@ -191,13 +191,22 @@ public partial class DebugScanner : IScanningDevice
 
     public async Task<IReadOnlyList<StorageFile>> GetScanAsync(ScanOptions scanOptions, StorageFolder targetFolder, DispatcherQueue uiDispatcherQueue)
     {
-        IReadOnlyList<PickFileResult> pickerResults = await Helpers.Helpers.PickInputFilesAsync(scanOptions.SourceMode != ScannerSource.Flatbed, uiDispatcherQueue);
-
-        // get files
-        StorageFile[] files = new StorageFile[pickerResults.Count];
-        for (int i = 0; i < pickerResults.Count; i++)
+        // fork: the UI tests pass the "scanned" image as launch argument instead of using the file picker
+        StorageFile[] files;
+        if (App.UiTestScanFile is string uiTestScanFile)
         {
-            files[i] = await StorageFile.GetFileFromPathAsync(pickerResults[i].Path);
+            files = [await StorageFile.GetFileFromPathAsync(uiTestScanFile)];
+        }
+        else
+        {
+            IReadOnlyList<PickFileResult> pickerResults = await Helpers.Helpers.PickInputFilesAsync(scanOptions.SourceMode != ScannerSource.Flatbed, uiDispatcherQueue);
+
+            // get files
+            files = new StorageFile[pickerResults.Count];
+            for (int i = 0; i < pickerResults.Count; i++)
+            {
+                files[i] = await StorageFile.GetFileFromPathAsync(pickerResults[i].Path);
+            }
         }
 
         // copy to target folder

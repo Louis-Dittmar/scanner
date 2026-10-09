@@ -10,6 +10,11 @@ public static class Constants
     public const string UI_TEST_ARGUMENT = "--ui-test";
 
     /// <summary>
+    /// Followed by the path of the image the debug scanner "scans" (see App.Fork.cs); must come last.
+    /// </summary>
+    public const string UI_TEST_SCAN_ARGUMENT = "--ui-test-scan=";
+
+    /// <summary>
     /// The images the debug scanner "scans": SCANNER_TEST_IMAGES, or the folder in this repository.
     /// </summary>
     public static string TestImagesFolder

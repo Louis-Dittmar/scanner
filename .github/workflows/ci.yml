@@ -118,6 +118,8 @@ jobs:
           Write-Output "Using the certificate from the repository secrets"
           [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGNING_PFX_BASE64))
           $password = $env:SIGNING_PFX_PASSWORD
+          # packaging signs from the certificate store; importing avoids APPX0105 for password-protected files
+          Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString $password -AsPlainText -Force) | Out-Null
         }
         else {
           Write-Output "Creating a self-signed certificate for CN=Louis Dittmar"
@@ -228,6 +230,16 @@ jobs:
       run: |
         $source = Join-Path $env:LOCALAPPDATA "Packages\LouisDittmar.ScannerPaperless_jdcc9wjam9c0t\LocalCache\logs"
         if (Test-Path $source) { Copy-Item $source (Join-Path $env:Results_Dir "app-logs") -Recurse -Force }
+
+    - name: Show UI test diagnostics
+      if: failure()
+      run: |
+        Get-ChildItem $env:Results_Dir -Recurse -Filter "diagnostics-*.txt" -ErrorAction SilentlyContinue | ForEach-Object {
+          Write-Output "::group::$($_.Name)"; Get-Content $_.FullName; Write-Output "::endgroup::"
+        }
+        Get-ChildItem (Join-Path $env:Results_Dir "app-logs") -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
+          Write-Output "::group::app log $($_.Name)"; Get-Content $_.FullName -Tail 150; Write-Output "::endgroup::"
+        }
 
     - name: Upload UI test results
       if: always()

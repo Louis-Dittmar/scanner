@@ -51,9 +51,10 @@ public sealed class GeneralTests
         Thread.Sleep(2000);     // let the single-instance app go away before the next test starts it again
     }
 
-    private Window LaunchApp()
+    private Window LaunchApp(string? scanFile = null)
     {
-        application = Application.LaunchStoreApp(Constants.APP_USER_MODEL_ID, Constants.UI_TEST_ARGUMENT);
+        string arguments = scanFile == null ? Constants.UI_TEST_ARGUMENT : $"{Constants.UI_TEST_ARGUMENT} {Constants.UI_TEST_SCAN_ARGUMENT}{scanFile}";
+        application = Application.LaunchStoreApp(Constants.APP_USER_MODEL_ID, arguments);
         automation = new UIA3Automation();
         Window mainWindow = application.GetMainWindow(automation, startTimeout)
             ?? throw new AssertFailedException("The main window didn't appear");
@@ -97,24 +98,31 @@ public sealed class GeneralTests
     /// </summary>
     private void DumpAppWindows()
     {
+        System.Text.StringBuilder dump = new();
         try
         {
             foreach (AutomationElement window in GetAppWindows())
             {
-                TestContext.WriteLine($"WINDOW '{window.Name}' class={window.ClassName}");
+                dump.AppendLine($"WINDOW '{window.Name}' class={window.ClassName}");
                 foreach (AutomationElement element in window.FindAllDescendants().Take(400))
                 {
                     string id = element.Properties.AutomationId.ValueOrDefault ?? "";
                     string name = element.Properties.Name.ValueOrDefault ?? "";
                     if (id.Length > 0 || name.Length > 0)
-                        TestContext.WriteLine($"  {element.Properties.ControlType.ValueOrDefault} id='{id}' name='{name}'");
+                        dump.AppendLine($"  {element.Properties.ControlType.ValueOrDefault} id='{id}' name='{name}' enabled={element.Properties.IsEnabled.ValueOrDefault}");
                 }
             }
         }
         catch (Exception exc)
         {
-            TestContext.WriteLine($"Dump failed: {exc.Message}");
+            dump.AppendLine($"Dump failed: {exc.Message}");
         }
+
+        // MTP doesn't show TestContext output in the console; CI prints these files on failure
+        string folder = TestContext.TestRunResultsDirectory ?? Path.GetTempPath();
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, $"diagnostics-{TestContext.TestName}.txt"), dump.ToString());
+        TestContext.WriteLine(dump.ToString());
     }
 
     private void SaveScreenshot(string name)
@@ -147,26 +155,16 @@ public sealed class GeneralTests
     [TestMethod]
     public void ScanIsTurnedIntoSelectablePdf()
     {
-        Window mainWindow = LaunchApp();
+        // in UI test mode the app adds the debug scanner by itself, which "scans" this image
+        string scanFile = Path.Combine(Constants.TestImagesFolder, "Document Portrait 1.png");
+        Assert.IsTrue(File.Exists(scanFile), scanFile);
+        Window mainWindow = LaunchApp(scanFile);
         ConditionFactory cf = mainWindow.ConditionFactory;
 
-        // scan a test image with the debug scanner
-        WaitFor(() => FindInApp(Scanner.Tests.ScanOptions.ScannersComboBoxId), startTimeout, "the scanner list")
-            .AsComboBox().RightClick();
-        WaitFor(() => FindInApp(Scanner.Tests.ScanOptions.AddDebugScannerButtonId), TimeSpan.FromSeconds(20), "'Add debug scanner'")
-            .AsButton().Invoke();
-        Thread.Sleep(1000);
-        Keyboard.Type(FlaUI.Core.WindowsAPI.VirtualKeyShort.ESC);
-        Thread.Sleep(500);
-        SaveScreenshot("debug-scanner-added");
-        WaitFor(() => FindInApp(Scanner.Tests.ScanActions.ScanButtonId), Retry.DefaultTimeout, "the scan button")
-            .AsButton().Click();
-
-        Window filePickerWindow = WaitFor(() => mainWindow.ModalWindows.FirstOrDefault()
-            ?? GetAppWindows().Select(w => w.AsWindow()).FirstOrDefault(w => w.ClassName == "#32770"), TimeSpan.FromSeconds(30), "the file picker");
-        // a full path in the file name box works regardless of the folder the picker shows
-        FileOpenPickerHelper.SetFiles(cf, filePickerWindow, Path.Combine(Constants.TestImagesFolder, "Document Portrait 1.png"));
-        FileOpenPickerHelper.ConfirmSelection(cf, filePickerWindow);
+        AutomationElement scanButton = WaitFor(() => FindInApp(Scanner.Tests.ScanActions.ScanButtonId) is { IsEnabled: true } button ? button : null,
+            startTimeout, "the enabled scan button");
+        SaveScreenshot("ready");
+        scanButton.AsButton().Invoke();
 
         // the document window opens by itself and runs white correction, recognition and PDF creation
         Window documentWindow = WaitFor(() => GetAppWindows()

@@ -30,6 +30,14 @@ public sealed partial class ShellView
 
         Loaded += async (s, e) =>
         {
+            if (App.UiTestScanFile != null)
+            {
+                // after the regular scanner search has started (it clears the list), add the scanner the UI tests use
+                await Task.Delay(TimeSpan.FromSeconds(2));
+                await Ioc.Default.GetRequiredService<IScannerDiscoveryService>().AddDebugScannerAsync(
+                    new Models.ScanningDevices.DebugScanner(new Models.ScanningDevices.DebugScannerSetupProperties()));
+            }
+
             IAiOcrService aiOcrService = Ioc.Default.GetRequiredService<IAiOcrService>();
             if (App.IsUiTestMode || !aiOcrService.IsSupported || aiOcrService.IsInstalled || aiOcrService.SetupPromptDismissed || AiSetup.IsInstalling)
                 return;
