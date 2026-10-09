@@ -1,0 +1,345 @@
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.DependencyInjection;
+using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
+using Scanner.Extensions;
+using Scanner.Models;
+using Scanner.Models.ItemNaming;
+using Scanner.Models.Interfaces;
+using Scanner.Services.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Windows.Storage;
+using Windows.Storage.Pickers;
+using WinRT.Interop;
+using WinUIEx;
+using static Scanner.Helpers.Helpers;
+
+namespace Scanner.ViewModels;
+
+public partial class SaveOptionsDialogViewModel : ObservableRecipient, IDisposable
+{
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DECLARATIONS /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    #region Services
+    public readonly IAccessibilityService AccessibilityService = Ioc.Default.GetRequiredService<IAccessibilityService>();
+    public readonly ICopilotRuntimeService CopilotRuntimeService = Ioc.Default.GetRequiredService<ICopilotRuntimeService>();
+    private ISaveLocationService SaveLocationService = Ioc.Default.GetRequiredService<ISaveLocationService>();
+    private ISettingsService SettingsService = Ioc.Default.GetRequiredService<ISettingsService>();
+    #endregion
+
+    #region Commands
+    public AsyncRelayCommand PickFolderAsyncCommand;
+    public AsyncRelayCommand<DispatcherQueue> ViewLoadingAsyncCommand => new AsyncRelayCommand<DispatcherQueue>(ViewLoadingAsync);
+    public RelayCommand DisposeCommand => new RelayCommand(Dispose);
+    #endregion
+
+    public SaveOptions? SaveOptions
+    {
+        get
+        {
+            if (AreValidOptionsSelected)
+            {
+                return new SaveOptions(SelectedFolder!, CreateSubfolder ? SubfolderName : null, IsSettingFileName ? FileDisplayName + FileExtension : null, GenerateAIFileName);
+            }
+            else
+            {
+                return null;
+            }
+        }
+    }
+
+    private StorageFolder? selectedFolder;
+    public StorageFolder? SelectedFolder
+    {
+        get => selectedFolder;
+        set
+        {
+            SetProperty(ref selectedFolder, value);
+            OnPropertyChanged(nameof(AreValidOptionsSelected));
+            OnPropertyChanged(nameof(IsFileNameCollision));
+
+            _ = Task.Run(UpdateOccupiedFoldersAsync);
+        }
+    }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AreValidOptionsSelected))]
+    [NotifyPropertyChangedFor(nameof(SelectedFileNamingPattern))]
+    [NotifyPropertyChangedFor(nameof(IsFileNameCollision))]
+    private string fileDisplayName;
+
+    public bool IsFileNameCollision => IsSettingFileName && occupiedFileNames.Contains(FileDisplayName.ToLower() + FileExtension);
+
+    public SettingFileNamingPattern? SelectedFileNamingPattern
+    {
+        get
+        {
+            if (FileDisplayName == DateTimeFileNamingPatternValue)
+            {
+                return SettingFileNamingPattern.DateTime;
+            }
+            else if (FileDisplayName == DateFileNamingPatternValue)
+            {
+                return SettingFileNamingPattern.Date;
+            }
+            else if (FileDisplayName == CustomFileNamingPatternValue)
+            {
+                return SettingFileNamingPattern.Custom;
+            }
+            else
+            {
+                return null;
+            }
+        }
+        set
+        {
+            switch (value)
+            {
+                case SettingFileNamingPattern.DateTime:
+                    FileDisplayName = DateTimeFileNamingPatternValue;
+                    break;
+                case SettingFileNamingPattern.Date:
+                    FileDisplayName = DateFileNamingPatternValue;
+                    break;
+                case SettingFileNamingPattern.Custom:
+                    FileDisplayName = CustomFileNamingPatternValue;
+                    break;
+            }
+        }
+    }
+
+    // only existing files can keep their names, new scans always need one (count is 0 for those)
+    public bool IsHandlingMultipleFiles => ExistingFileCount > 1;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AreValidOptionsSelected))]
+    [NotifyPropertyChangedFor(nameof(IsFileNameCollision))]
+    private bool isSettingFileName;
+
+    [ObservableProperty]
+    private bool createSubfolder;
+    partial void OnCreateSubfolderChanged(bool value) => _ = Task.Run(UpdateOccupiedFoldersAsync);
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AreValidOptionsSelected))]
+    [NotifyPropertyChangedFor(nameof(SelectedSubfolderNamingPattern))]
+    private string subfolderName;
+    partial void OnSubfolderNameChanged(string value) => _ = Task.Run(UpdateOccupiedFoldersAsync);
+
+    public SettingSubfolderNamingPattern? SelectedSubfolderNamingPattern
+    {
+        get
+        {
+            if (SubfolderName == DateSubfolderNamingPatternValue)
+            {
+                return SettingSubfolderNamingPattern.Date;
+            }
+            else if (SubfolderName == FileTypeSubfolderNamingPatternValue)
+            {
+                return SettingSubfolderNamingPattern.FileType;
+            }
+            else if (SubfolderName == CustomSubfolderNamingPatternValue)
+            {
+                return SettingSubfolderNamingPattern.Custom;
+            }
+            else
+            {
+                return null;
+            }
+        }
+        set
+        {
+            switch (value)
+            {
+                case SettingSubfolderNamingPattern.Date:
+                    SubfolderName = DateSubfolderNamingPatternValue;
+                    break;
+                case SettingSubfolderNamingPattern.FileType:
+                    SubfolderName = FileTypeSubfolderNamingPatternValue;
+                    break;
+                case SettingSubfolderNamingPattern.Custom:
+                    SubfolderName = CustomSubfolderNamingPatternValue;
+                    break;
+                default:
+                    SubfolderName = "";
+                    break;
+            }
+        }
+    }
+
+    [ObservableProperty]
+    private bool generateAIFileName;
+
+    public bool CanGenerateAIFileName => CopilotRuntimeService.IsSupported && ScanOptions.TargetFormat == TargetFormat.PDF && Project == null;
+
+    public string DateTimeFileNamingPatternValue;
+    public string DateFileNamingPatternValue;
+    public string CustomFileNamingPatternValue;
+
+    public string DateSubfolderNamingPatternValue;
+    public string FileTypeSubfolderNamingPatternValue;
+    public string CustomSubfolderNamingPatternValue;
+
+    public string FileExtension;
+
+    public bool IsPdf => ScanOptions.TargetFormat == TargetFormat.PDF;
+
+    public bool AreValidOptionsSelected => SelectedFolder != null && (!IsSettingFileName || IsValidFileName(FileDisplayName));
+
+    public ScanOptions ScanOptions;
+
+    public ProjectBase? Project;
+
+    public readonly int ExistingFileCount;
+
+    public List<StorageFolder> RecentFolders;
+
+    private string[] occupiedFileNames = [];
+
+    private DispatcherQueue? viewDispatcherQueue;
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // CONSTRUCTORS / FACTORIES /////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    public SaveOptionsDialogViewModel(ScanOptions scanOptions, ProjectBase? project, string? desiredFileDisplayName, int existingFileCount)
+    {
+        ScanOptions = scanOptions;
+        Project = project;
+        ExistingFileCount = existingFileCount;
+        FileExtension = TargetFormatToFileExtension(ScanOptions.TargetFormat);
+
+        PickFolderAsyncCommand = new AsyncRelayCommand(SelectFolderAsync);
+
+        SettingsService.PropertyChanged += SettingsService_PropertyChanged;
+
+        DateTimeFileNamingPatternValue = ItemNamingStatics.FileDateTimePattern.GenerateResult(ScanOptions, false);
+        DateFileNamingPatternValue = ItemNamingStatics.FileDatePattern.GenerateResult(ScanOptions, false);
+        CustomFileNamingPatternValue = SettingsService.CustomFileNamingPattern.GenerateResult(ScanOptions, false);
+        SelectedFileNamingPattern = SettingsService.SettingFileNamingPattern;
+        SelectedSubfolderNamingPattern = SettingsService.SettingSubfolderNamingPattern;
+
+        DateSubfolderNamingPatternValue = ItemNamingStatics.FolderDatePattern.GenerateResult(ScanOptions, false);
+        FileTypeSubfolderNamingPatternValue = ItemNamingStatics.FolderFileTypePattern.GenerateResult(ScanOptions, false);
+        CustomSubfolderNamingPatternValue = SettingsService.CustomSubfolderNamingPattern.GenerateResult(ScanOptions, false);
+        SelectedSubfolderNamingPattern = SettingsService.SettingSubfolderNamingPattern;
+
+        IsSettingFileName = !IsHandlingMultipleFiles;
+
+        // keep name if already present
+        if (desiredFileDisplayName != null)
+            FileDisplayName = desiredFileDisplayName;
+    }
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // METHODS //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    public void Dispose()
+    {
+        Messenger.UnregisterAll(this);
+    }
+
+    private async Task ViewLoadingAsync(DispatcherQueue dispatcherQueue)
+    {
+        viewDispatcherQueue = dispatcherQueue;
+
+        if (Project != null && Project is PdfProject pdfProject && pdfProject.TargetFolder != null)
+        {
+            SelectedFolder = pdfProject.TargetFolder;
+            _ = Task.Run(UpdateOccupiedFoldersAsync);
+        }
+        else
+        {
+            SelectedFolder = await SaveLocationService.GetFixedSaveLocationAsync();
+            _ = Task.Run(UpdateOccupiedFoldersAsync);
+        }
+
+        _ = GenerateRecentFoldersListAsync();
+    }
+
+    private void SettingsService_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(ISettingsService.CustomFileNamingPattern):
+                bool updateFileName = SelectedFileNamingPattern == SettingFileNamingPattern.Custom;
+                CustomFileNamingPatternValue = SettingsService.CustomFileNamingPattern.GenerateResult(ScanOptions, false);
+                if (updateFileName)
+                {
+                    FileDisplayName = CustomFileNamingPatternValue;
+                }
+                break;
+            case nameof(ISettingsService.CustomSubfolderNamingPattern):
+                bool updateSubfolderName = SelectedSubfolderNamingPattern == SettingSubfolderNamingPattern.Custom;
+                CustomSubfolderNamingPatternValue = SettingsService.CustomSubfolderNamingPattern.GenerateResult(ScanOptions, false);
+                if (updateSubfolderName)
+                {
+                    SubfolderName = CustomSubfolderNamingPatternValue;
+                }
+                break;
+        }
+    }
+
+    private async Task UpdateOccupiedFoldersAsync()
+    {
+        if (SelectedFolder == null)
+        {
+            occupiedFileNames = [];
+            return;
+        }
+
+        StorageFolder folder = SelectedFolder;
+
+        try
+        {
+            if (CreateSubfolder)
+                folder = await SelectedFolder.GetFolderAsync(SubfolderName);
+        }
+        catch (Exception) { }
+
+        occupiedFileNames = [.. (await folder.GetFilesAsync()).Select((x) => x.Name.ToLower())];
+        viewDispatcherQueue?.RunOnThread(DispatcherQueuePriority.Low, () => OnPropertyChanged(nameof(IsFileNameCollision)));
+    }
+
+    private async Task SelectFolderAsync()
+    {
+        // create picker
+        FolderPicker picker = new FolderPicker
+        {
+            SuggestedStartLocation = PickerLocationId.PicturesLibrary,
+        };
+        picker.FileTypeFilter.Add("*");
+        InitializeWithWindow.Initialize(picker, ((App)Application.Current).MainWindow.GetWindowHandle());
+
+        // pick folder
+        StorageFolder? folder = await picker.PickSingleFolderAsync();
+        if (folder != null)
+        {
+            SelectedFolder = folder;
+            await UpdateOccupiedFoldersAsync();
+        }
+    }
+
+    private async Task GenerateRecentFoldersListAsync()
+    {
+        // get actual recents
+        List<StorageFolder> recents = await SaveLocationService.GetRecentFoldersAsync();
+
+        // add fixed location to bottom of list if it is not already included
+        StorageFolder? fixedLocation = await SaveLocationService.GetFixedSaveLocationAsync();
+        if (fixedLocation != null && !recents.Any((x) => x.Path == fixedLocation.Path))
+        {
+            recents.Add(fixedLocation);
+        }
+
+        RecentFolders = recents;
+    }
+}

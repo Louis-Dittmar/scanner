@@ -1,0 +1,84 @@
+﻿using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using WinRT.Interop;
+using CommunityToolkit.Mvvm.ComponentModel;
+using System.Collections.ObjectModel;
+using Scanner.Models.Interfaces;
+using Scanner.Models;
+using Scanner.Models.ScanningDevices;
+using Windows.Graphics.Imaging;
+using Windows.Storage;
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
+
+namespace Scanner.Services.Interfaces;
+
+/// <summary>
+///     Manages and exposes save locations.
+/// </summary>
+public interface ISaveLocationService
+{
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DECLARATIONS /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // METHODS //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// <summary>
+    ///     Determines the save location to use for a scan. This can result in a file picker dialog opening and even the user
+    ///     cancelling the operation.
+    /// </summary>
+    /// <param name="existingFileCount">
+    ///     The number of existing files being saved, if any. With more than one, the save dialog lets them keep their names.
+    /// </param>
+    /// <returns>The <see cref="SaveOptions?"/> to use for saving.</returns>
+    Task<SaveOptions?> GetSaveOptionsAsync(Window window, ScanOptions scanOptions, ProjectBase? existingProject,
+        bool forceTargetFolder, DispatcherQueue uiDispatcherQueue, bool saveAs = false, string? desiredFileDisplayName = null, int existingFileCount = 0);
+
+    /// <summary>
+    ///     Gets the currently selected fixed save location regardless of whether it's used or not. Can be null if unsupported.
+    /// </summary>
+    /// <returns>The <see cref="StorageFolder"/> that is used as the fixed save location.</returns>
+    Task<StorageFolder?> GetFixedSaveLocationAsync();
+
+    /// <summary>
+    ///    Allows the user to select a new fixed save location.
+    /// </summary>
+    /// <returns>
+    ///     The updated save location. This can be the same as before or null, especially if the user cancelled the operation.
+    /// </returns>
+    Task<StorageFolder?> SelectFixedSaveLocationAsync(Window window, DispatcherQueue uiDispatcherQueue);
+
+    /// <summary>
+    ///     Resets the save location to a default value.
+    /// </summary>
+    /// <returns>The updated save location. Can be null if fixed save locations aren't supported.</returns>
+    Task<StorageFolder?> TryResetSaveLocationAsync();
+
+
+    /// <summary>
+    ///    Determines if using a fixed save location is supported.
+    /// </summary>
+    Task<bool> GetIsFixedSaveLocationSupportedAsync();
+
+
+    /// <summary>
+    ///     Provides a list of recently confirmed save locations, with the most recent one at the top. Can include the fixed
+    ///     save location.
+    /// </summary>
+    Task<List<StorageFolder>> GetRecentFoldersAsync();
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// MISCELLANEOUS ////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+public record SaveOptions(StorageFolder? TargetFolder, string? SubfolderName, string? FileName, bool GenerateAIFileName);    

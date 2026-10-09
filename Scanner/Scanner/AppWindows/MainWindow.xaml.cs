@@ -1,0 +1,97 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.DependencyInjection;
+using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.UI;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Navigation;
+using Scanner.Extensions;
+using Scanner.Helpers;
+using Scanner.Messages;
+using Scanner.Services.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices.WindowsRuntime;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.Foundation;
+using Windows.Foundation.Collections;
+using Windows.Storage;
+using WinRT.Interop;
+using WinUIEx;
+using static Scanner.Helpers.Helpers;
+
+
+namespace Scanner.AppWindows;
+
+[ObservableRecipientAttribute]
+[ObservableObjectAttribute]
+public sealed partial class MainWindow : WindowBase
+{
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DECLARATIONS /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    public bool IsInForeground { get; private set; }
+
+    private List<StorageFile> shareFiles;
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // CONSTRUCTORS / FACTORIES /////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    public MainWindow()
+    {
+        this.InitializeComponent();
+        Ioc.Default.GetService<ILogService>()?.Log.Information("Window loaded");
+        PersistenceId = "MainWindow";
+
+        AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+
+        DispatcherQueue.RunOnThread(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, SetUpSharing);
+    }
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // METHODS //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private void SetUpSharing()
+    {
+        WeakReferenceMessenger.Default.Register<SetShareFilesMessage>(this, (r, m) => shareFiles = m.Files);
+        DataTransferManagerInterop.GetForWindow(WindowNative.GetWindowHandle(this)).DataRequested += DataTransferManager_DataRequested;
+    }
+
+    private void DataTransferManager_DataRequested(Windows.ApplicationModel.DataTransfer.DataTransferManager sender, Windows.ApplicationModel.DataTransfer.DataRequestedEventArgs args)
+    {
+        if (shareFiles != null && shareFiles.Count >= 1)
+        {
+            args.Request.Data.SetStorageItems(shareFiles);
+
+            if (shareFiles.Count == 1)
+                args.Request.Data.Properties.Title = shareFiles[0].Name;
+            else
+                args.Request.Data.Properties.Title = GetLocalized(Resources.Strings.ResourcesExtension.KeyEnum.ShareUITitleMultipleFiles);
+        }
+    }
+
+    private void WindowEx_Activated(object sender, WindowActivatedEventArgs args)
+    {
+        switch (args.WindowActivationState)
+        {
+            case WindowActivationState.CodeActivated:
+            case WindowActivationState.PointerActivated:
+                IsInForeground = true;
+                break;
+            case WindowActivationState.Deactivated:
+            default:
+                IsInForeground = false;
+                break;
+        }
+    }
+}

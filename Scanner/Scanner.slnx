@@ -1,0 +1,15 @@
+<Solution>
+  <Configurations>
+    <Platform Name="ARM64" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="../Tesseract/src/Tesseract/Tesseract.csproj" />
+  <Project Path="Scanner/Scanner.csproj">
+    <Platform Solution="*|ARM64" Project="ARM64" />
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
+    <Deploy />
+  </Project>
+  <Project Path="ScannerTests/ScannerTests.csproj" Id="17083181-a4f6-4f86-81f3-e73e83450d82" />
+</Solution>

@@ -1,6 +1,3 @@
-> [!NOTE]
-> The project is being rewritten from the ground up with lots of changes happening in quick succession. As a result, the current app is in maintenance mode and contributions will probably not reach the release channel. Pre-release versions of v4 are available in the [Releases](https://github.com/simon-knuth/scanner/releases) section.
-
 <image src='https://user-images.githubusercontent.com/50021001/143053339-ad627dd6-ee56-4329-9985-513dadf23935.jpg'/>
 <table>
   <tr>
@@ -77,7 +74,6 @@ The currently supported languages are:
   <li>English (EN-GB)</li>
   <li>French (FR)</li>
   <li>German (DE)</li>
-  <li>Hebrew (HE)</li>
   <li>Hindi (HI)</li>
   <li>Hungarian (HU)</li>
   <li>Indonesian (ID)</li>

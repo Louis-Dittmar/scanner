@@ -1,0 +1,1314 @@
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.DependencyInjection;
+using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.WinUI.Helpers;
+using Microsoft.Graphics.Canvas;
+using Microsoft.Graphics.Canvas.Effects;
+using Microsoft.UI;
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Documents;
+using Microsoft.UI.Xaml.Media;
+using Scanner.Extensions;
+using Scanner.Helpers;
+using Scanner.Messages;
+using Scanner.Models.Interfaces;
+using Scanner.Services.Interfaces;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Numerics;
+using System.Reflection;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Windows.Devices.Scanners;
+using Windows.Foundation;
+using Windows.Graphics.Imaging;
+using Windows.Storage;
+using Windows.Storage.AccessCache;
+using Windows.Storage.Streams;
+using Windows.System.Threading;
+using Windows.UI.Input.Inking;
+using Windows.UI.WebUI;
+using WinRT.Interop;
+using static Scanner.Helpers.RotationHelpers;
+using static Scanner.Models.ImagePage;
+
+namespace Scanner.Models;
+
+public abstract partial class ProjectBase : ObservableRecipient
+{
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DECLARATIONS /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    #region Constants
+    /// <summary>
+    /// Length (in DIPs) of the longest side of a rendered PDF page thumbnail.
+    /// </summary>
+    private const uint pdfThumbnailSize = 92;
+
+    /// <summary>
+    /// Factor by which image-page preview files are downscaled relative to their source; never applied to saved files.
+    /// </summary>
+    private const double previewScale = 0.75;
+    #endregion
+
+    #region Services
+    protected static readonly IAppDataService AppDataService = Ioc.Default.GetRequiredService<IAppDataService>();
+    protected static readonly ICopilotRuntimeService CopilotRuntimeService = Ioc.Default.GetRequiredService<ICopilotRuntimeService>();
+    protected static readonly ILogService? LogService = Ioc.Default.GetService<ILogService>();
+    protected static readonly IProjectService ProjectService = Ioc.Default.GetRequiredService<IProjectService>();
+    protected static readonly ISaveLocationService SaveLocationService = Ioc.Default.GetRequiredService<ISaveLocationService>();
+    protected static readonly IOcrService OcrService = Ioc.Default.GetRequiredService<IOcrService>();
+    protected static readonly ISentryService? SentryService = Ioc.Default.GetService<ISentryService>();
+    protected static readonly ISettingsService SettingsService = Ioc.Default.GetRequiredService<ISettingsService>();
+    #endregion
+
+    #region Events
+    public event EventHandler PagesAdded;
+    public event EventHandler PagesRemoved;
+    #endregion
+
+    public Guid Id { get; }
+
+    [ObservableProperty]
+    private bool isSaving;
+
+    public bool IsSaved => Interlocked.Read(ref savedRevision) >= Interlocked.Read(ref contentRevision) && hasFileNameBeenApplied;
+
+    public abstract bool HasSaveLocation { get; }
+
+    public TaskCompletionSource<bool>? LatestSaveProcess;
+
+    public ObservableCollection<IProjectPage> Pages
+    {
+        get;
+        private set;
+    }
+
+    /// <summary>
+    /// The <see cref="ScanOptions"/> in use when this project was created in the first place.
+    /// </summary>
+    public readonly ScanOptions CreationScanOptions;
+    public readonly TargetFormat Format;
+    public string FriendlyFormatName => Format.GetFriendlyName();
+
+    public bool IsPdf => Format == TargetFormat.PDF;
+    public bool HasBeenCreatedFromPdf { init; get; }
+
+    /// <summary>
+    /// Incremented for every change.
+    /// </summary>
+    private long contentRevision;
+
+    /// <summary>
+    /// Highest <see cref="contentRevision"/> that's been saved to a file.
+    /// </summary>
+    private long savedRevision = -1;
+
+    /// <summary>
+    /// Whether there is content that has not yet been written to the final file (independent of the file name).
+    /// </summary>
+    protected bool HasUnsavedContent => Interlocked.Read(ref savedRevision) < Interlocked.Read(ref contentRevision);
+
+    /// <summary>
+    /// Raised whenever the project has unsaved changes (including a rename).
+    /// </summary>
+    public event EventHandler? ContentChanged;
+
+    private bool _hasFileNameBeenApplied = true;
+    protected bool hasFileNameBeenApplied
+    {
+        get => _hasFileNameBeenApplied;
+        set
+        {
+            bool changed = SetProperty(ref _hasFileNameBeenApplied, value);
+            OnPropertyChanged(nameof(IsSaved));
+
+            // A pending rename makes the project dirty just like a content edit; fire ContentChanged so auto-save
+            // debounces it promptly instead of waiting for the slow safety-net timer.
+            if (changed && !value)
+                ContentChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    protected bool saveProcessWaitingToStart;
+
+    protected SemaphoreSlim saveSemaphore = new(1, 1);                // needed to run a save process
+
+    protected SemaphoreSlim projectObjectSemaphore = new(1, 1);       // needed to modify the Project object
+    protected SemaphoreSlim projectFolderSemaphore = new(1, 1);       // needed to modify the Project folder
+    protected SemaphoreSlim changesFolderSemaphore = new(1, 1);       // needed to modify the Changes folder
+
+    private ConcurrentDictionary<ImagePage, ThreadPoolTimer> consecutiveAtomicActionMergeTimers = [];
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // CONSTRUCTORS / FACTORIES /////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    protected ProjectBase(Guid? id, IList<IProjectPage> pages, TargetFormat targetFormat, ScanOptions creationScanOptions)
+    {
+        Id = id ?? Guid.NewGuid();
+        Pages = new ObservableCollection<IProjectPage>(pages);
+        Format = targetFormat;
+        CreationScanOptions = creationScanOptions;
+    }
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // METHODS //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    public abstract Task DeleteAsync();
+
+    /// <param name="isUserInitiated">
+    /// Whether the save was explicitly invoked by the user (e.g. the Save button or the unsaved-changes
+    /// dialog) rather than an automatic save. Only user-initiated saves are tracked in analytics.
+    /// </param>
+    public abstract Task SaveAsync(bool saveAs, DispatcherQueue uiDispatcherQueue, bool isUserInitiated = false);
+
+    /// <summary>
+    /// Tracks a successful, user-initiated save and the relevant save configuration.
+    /// </summary>
+    protected void TrackSaveAnalytics(bool saveAs, bool currentPageOnly = false)
+    {
+        SentryService?.TrackEvent(AnalyticsEvent.ProjectSaved, new Dictionary<string, string>
+        {
+            { "save_as", saveAs.ToString() },
+            { "current_page_only", currentPageOnly.ToString() },
+            { "format", Format.ToString() },
+            { "sub_folder", SettingsService.SettingUseSubfolder.ToString() },
+            { "sub_folder_pattern", SettingsService.SettingSubfolderNamingPattern.ToString() },
+            { "file_pattern", SettingsService.SettingFileNamingPattern.ToString() },
+        });
+    }
+
+
+    public async Task<List<ImagePage>> AddFilesAsync(List<ProjectFileInsertion> insertions, bool keepSourceFiles, DispatcherQueue uiDispatcherQueue)
+    {
+        TaskCompletionSource process = new();
+        if (insertions.Count > 1)
+            Messenger.Send(new ShowIndeterminateProgressDialogMessage(Resources.Strings.Resources.ApplyingChanges, process.Task));
+
+        await StartEditingAsync();
+
+        try
+        {
+            return await AddFilesInternalAsync(insertions, keepSourceFiles, uiDispatcherQueue);
+        }
+        finally
+        {
+            FinishEditing();
+            process.TrySetResult();
+        }
+    }
+
+    private async Task<List<ImagePage>> AddFilesInternalAsync(List<ProjectFileInsertion> insertions, bool keepSourceFiles, DispatcherQueue uiDispatcherQueue)
+    {
+        // keep track of changes in case of error
+        List<StorageFile> copiedFiles = [];
+        List<KeyValuePair<ImagePage, int>> preparedInsertions = [];
+        List<ImagePage> insertedPages = [];
+
+        // revertable section
+        try
+        {
+            // add files
+            await Task.Run(async () =>
+            {
+                foreach (ProjectFileInsertion insertion in insertions)
+                {
+                    if (!AddFilesAction.AcceptedFileExtensions.Contains(insertion.File.FileType.ToLower()))
+                        continue;
+
+                    IProjectPage page = await CreatePageFromFileAsync(insertion.File, insertion.Index, IsPdf ? null : insertion.FileName, null, insertion.TargetFolder, keepSourceFiles, AppDataService.ChangesFolder, insertion.BaseFilter, insertion.Filter, insertion.Brightness, insertion.Contrast);
+                    copiedFiles.Add(((ImagePage)page).SourceFile);
+
+                    if (insertion.InkStrokes != null && page is ImagePage insertedImagePage)
+                        insertedImagePage.InkStrokes = insertion.InkStrokes;
+
+                    preparedInsertions.Add(new KeyValuePair<ImagePage, int>((ImagePage)page, insertion.Index));
+                }
+            });
+
+            // add pages
+            foreach (KeyValuePair<ImagePage, int> insertion in preparedInsertions)
+            {
+                Pages.Insert(insertion.Value, insertion.Key);
+                insertedPages.Add(insertion.Key);
+            }
+
+            // update previews
+            List<ImagePage> imagePages = insertedPages.OfType<ImagePage>().ToList();
+            if (imagePages.Any())
+            {
+                await GeneratePagePreviewsAsync(imagePages, uiDispatcherQueue);
+            }
+        }
+        catch (Exception exc)
+        {
+            // roll back changes
+            foreach (StorageFile file in copiedFiles)
+            {
+                await file.DeleteAsync(StorageDeleteOption.PermanentDelete);
+            }
+
+            foreach (IProjectPage page in insertedPages)
+            {
+                Pages.Remove(page);
+            }
+
+            throw new ActionFailedAndRolledBackException(exc);
+        }
+
+        // update indices
+        for (int i = 0; i < Pages.Count; i++)
+        {
+            Pages[i].Index = i;
+        }
+
+        PagesAdded?.Invoke(this, EventArgs.Empty);
+
+        BumpRevision();
+        return insertedPages;
+    }
+
+    public async Task AddPagesAsync(List<ImagePage> insertions, DispatcherQueue uiDispatcherQueue)
+    {
+        TaskCompletionSource process = new();
+        if (insertions.Count > 1)
+            Messenger.Send(new ShowIndeterminateProgressDialogMessage(Resources.Strings.Resources.ApplyingChanges, process.Task));
+
+        await StartEditingAsync();
+
+        try
+        {
+            // keep track of changes in case of error
+            List<KeyValuePair<StorageFile, StorageFolder>> moves = new();
+            List<ImagePage> insertedPages = new();
+
+            // revertable section
+            try
+            {
+                // move files
+                foreach (ImagePage insertion in insertions)
+                {
+                    StorageFolder previousFolder = await insertion.SourceFile.GetParentAsync();
+                    await insertion.SourceFile.MoveAsync(AppDataService.ChangesFolder, insertion.SourceFile.Name, NameCollisionOption.GenerateUniqueName);
+                    await insertion.ChangeSourceFileAsync(AppDataService.ChangesFolder, insertion.SourceFile, uiDispatcherQueue);
+                    moves.Add(new KeyValuePair<StorageFile, StorageFolder>(insertion.SourceFile, previousFolder));
+                }
+
+                // add pages
+                foreach (ImagePage insertion in insertions.OrderBy(x => x.Index))
+                {
+                    if (insertion.TargetFile != null)
+                        insertion.TargetFile = new(insertion.TargetFile.File, await insertion.TargetFile.File.OpenAsync(FileAccessMode.ReadWrite, StorageOpenOptions.AllowOnlyReaders));
+
+                    Pages.Insert(insertion.Index, insertion);
+                    insertedPages.Add(insertion);
+                }
+
+                // don't delete target files if pages were added back
+                if (this is MultiFileProject multiFileProject)
+                {
+                    foreach (IProjectPage page in insertedPages)
+                    {
+                        multiFileProject.PagesWithTargetFilesToDelete.Remove(page);
+                    }
+                }
+
+                // update previews
+                List<ImagePage> imagePages = insertedPages.OfType<ImagePage>().ToList();
+                if (imagePages.Any())
+                {
+                    await GeneratePagePreviewsAsync(imagePages, uiDispatcherQueue);
+                }
+            }
+            catch (Exception exc)
+            {
+                // roll back changes
+                foreach (KeyValuePair<StorageFile, StorageFolder> move in moves)
+                {
+                    await move.Key.MoveAsync(move.Value, move.Key.Name, NameCollisionOption.GenerateUniqueName);
+                }
+
+                foreach (ImagePage page in insertedPages)
+                {
+                    Pages.Remove(page);
+                    await page.ChangeSourceFileAsync(await page.SourceFile.GetParentAsync(), page.SourceFile, uiDispatcherQueue);
+                }
+
+                throw new ActionFailedAndRolledBackException(exc);
+            }
+
+            // update indices
+            for (int i = 0; i < Pages.Count; i++)
+            {
+                Pages[i].Index = i;
+            }
+
+            PagesAdded?.Invoke(this, EventArgs.Empty);
+
+            BumpRevision();
+        }
+        finally
+        {
+            FinishEditing();
+            process.TrySetResult();
+        }
+    }
+
+    /// <summary>
+    /// Removes a given set of pages from the project.
+    /// </summary>
+    /// <param name="pages">
+    /// The pages to remove.
+    /// </param>
+    /// <param name="isUndoing">
+    /// Whether to move the source files of the removed pages to the Redo folder.
+    /// </param>
+    /// <exception cref="ActionFailedAndRolledBackException"></exception>
+    public async Task RemovePagesAsync(List<ImagePage> pages, bool isUndoing, DispatcherQueue uiDispatcherQueue)
+    {
+        TaskCompletionSource process = new();
+        if (pages.Count > 1)
+            Messenger.Send(new ShowIndeterminateProgressDialogMessage(Resources.Strings.Resources.ApplyingChanges, process.Task));
+
+        await StartEditingAsync();
+
+        try
+        {
+            // keep track of changes in case of error
+            List<StorageFile> deletedFiles = new();
+            List<int> deletedIndices = new();
+
+            // revertable section
+            try
+            {
+                // remove pages
+                foreach (ImagePage page in pages)
+                {
+                    deletedFiles.Add(page.SourceFile);
+                    deletedIndices.Add(page.Index);
+
+                    if (page is ImagePage imagePage)
+                    {
+                        if (isUndoing)
+                        {
+                            // move to redo folder
+                            await page.SourceFile.MoveAsync(AppDataService.RedoFolder, page.SourceFile.Name, NameCollisionOption.GenerateUniqueName);
+                        }
+                        else
+                        {
+                            // move to undo folder
+                            await page.SourceFile.MoveAsync(AppDataService.UndoFolder, page.SourceFile.Name, NameCollisionOption.GenerateUniqueName);
+                        }
+
+                        if (page.TargetFile != null)
+                            page.TargetFile.FileStream.Dispose();
+
+                        if (page.PreviewFile != null && page.PreviewFile != page.SourceFile)
+                        {
+                            await imagePage.UpdatePreviewFileAsync(null, uiDispatcherQueue);
+                        }
+                    }
+                    
+                    Pages.Remove(page);
+                }
+            }
+            catch (Exception exc)
+            {
+                // roll back changes
+                foreach (StorageFile file in deletedFiles)
+                {
+                    await file.DeleteAsync(StorageDeleteOption.PermanentDelete);
+                }
+                for (int i = 0; i < deletedIndices.Count; i++)
+                {
+                    Pages.Insert(deletedIndices[i], pages[i]);
+                }
+                throw new ActionFailedAndRolledBackException(exc);
+            }
+
+            // update indices
+            for (int i = 0; i < Pages.Count; i++)
+            {
+                Pages[i].Index = i;
+            }
+
+            // mark pages' target files for deletion
+            if (this is MultiFileProject multiFileProject)
+                multiFileProject.PagesWithTargetFilesToDelete.AddRange(pages);
+
+            PagesRemoved?.Invoke(this, EventArgs.Empty);
+
+            BumpRevision();
+        }
+        finally
+        {
+            FinishEditing();
+            process.TrySetResult();
+        }
+    }
+
+    protected static async Task<IProjectPage> CreatePageFromFileAsync(StorageFile file, int index, string? targetFileName, StorageFile? targetFile, StorageFolder? targetFolder, bool keepSourceFile, StorageFolder pagesFolder, ImageFilter baseFilter, ImageFilter filter, int brightness, int contrast)
+    {
+        if (file == null) throw new ArgumentException("Can't create IProjectPage from null file");
+
+        switch (file.FileType.ToLower())
+        {
+            case ".jpg":
+            case ".jpeg":
+            case ".png":
+            case ".bmp":
+            case ".tif":
+            case ".tiff":
+                return await ImagePage.CreateAsync(file, targetFile, targetFolder, index, targetFileName, keepSourceFile, pagesFolder, baseFilter, filter, brightness, contrast);
+            case ".pdf":
+                return await PdfPage.CreateAsync((uint)index, index);
+            default:
+                throw new ArgumentException("Failed to create IProjectPage due to incompatible file format");
+        }
+    }
+
+    /// <summary>
+    /// Rotates image files.
+    /// </summary>
+    /// <param name="instructions">Which file to rotate how much.</param>
+    /// <param name="overwriteFilesDirectly">Whether to overwrite files directly or create a separate file first and then delete the old one.</param>
+    /// <param name="pagesFolder">Where to save the result to. Overrides <paramref name="overwriteFileDirectly"/> if set to a folder different from <paramref name="file"/>'s.</param>
+    public static async Task RotateFilesAsync(Dictionary<StorageFile, BitmapRotation> instructions, bool overwriteFilesDirectly, StorageFolder pagesFolder)
+    {
+        foreach (KeyValuePair<StorageFile, BitmapRotation> instruction in instructions)
+        {
+            StorageFile oldFile = instruction.Key;
+            await RotateFileAsync(instruction.Key, instruction.Value, overwriteFilesDirectly, pagesFolder);
+
+            if (!overwriteFilesDirectly)
+            {
+                // delete old file
+                _ = Task.Run(async () =>
+                {
+                    await oldFile.DeleteAsync(StorageDeleteOption.PermanentDelete);
+                });
+            }
+        }
+    }
+
+    /// <summary>
+    /// Rotates pages.
+    /// </summary>
+    /// <param name="instructions">Which page to rotate how much.</param>
+    /// <returns></returns>
+    public async Task RotatePagesAsync(Dictionary<ImagePage, BitmapRotation> instructions, StorageFolder pagesFolder, DispatcherQueue uiDispatcherQueue)
+    {
+        TaskCompletionSource process = new();
+        if (instructions.Count > 1)
+            Messenger.Send(new ShowIndeterminateProgressDialogMessage(Resources.Strings.Resources.ApplyingChanges, process.Task));
+
+        try
+        {
+            List<(ImagePage Page, StorageFile OldFile, StorageFile NewFile)> finalStepData = [];
+
+            try
+            {
+                await StartEditingAsync();
+
+                try
+                {
+                    // generate rotated files
+                    foreach (KeyValuePair<ImagePage, BitmapRotation> instruction in instructions)
+                    {
+                        if (instruction.Value == BitmapRotation.None) continue;
+
+                        StorageFile newFile;
+                        newFile = await RotateFileAsync(instruction.Key.SourceFile, instruction.Value, false, pagesFolder);
+                        await instruction.Key.ChangeSourceFileAsync(pagesFolder, newFile, uiDispatcherQueue);
+
+                        // move the page's ink along with its pixels, then swap the dimensions to match
+                        if (instruction.Key.HasInk)
+                        {
+                            instruction.Key.InkStrokes = InkRenderingHelpers.TransformStrokes(instruction.Key.InkStrokes,
+                                GetPageRotationMatrix(instruction.Value, instruction.Key.Width, instruction.Key.Height));
+                        }
+
+                        if (instruction.Value is BitmapRotation.Clockwise90Degrees or BitmapRotation.Clockwise270Degrees)
+                        {
+                            (instruction.Key.Width, instruction.Key.Height) = (instruction.Key.Height, instruction.Key.Width);
+                        }
+
+                        BumpRevision();
+                        finalStepData.Add((instruction.Key, instruction.Key.SourceFile, newFile));
+                    }
+                }
+                catch (Exception exc)
+                {
+                    // roll back changes
+                    foreach (var data in finalStepData)
+                    {
+                        // delete rotated files
+                        if (data.OldFile != data.NewFile)
+                        {
+                            _ = Task.Run(async () =>
+                            {
+                                await data.NewFile.DeleteAsync(StorageDeleteOption.PermanentDelete);
+                            });
+                        }
+                    }
+
+                    throw new ActionFailedAndRolledBackException(exc);
+                }
+            }
+            finally
+            {
+                FinishEditing();
+            }
+
+            // update previews
+            await GeneratePagePreviewsAsync(instructions.Keys.ToList(), uiDispatcherQueue);
+
+            // delete old files
+            await saveSemaphore.WaitAsync();
+            try
+            {
+                foreach (var data in finalStepData)
+                {
+                    if (data.OldFile != data.NewFile)
+                    {
+                        _ = Task.Run(async () =>
+                        {
+                            await data.OldFile.DeleteAsync(StorageDeleteOption.PermanentDelete);
+                        });
+                    }
+                }
+            }
+            finally
+            {
+                saveSemaphore.Release();
+            }
+        }
+        finally
+        {
+            process.TrySetResult();
+        }
+    }
+
+    /// <summary>
+    /// Rotates a file.
+    /// </summary>
+    /// <param name="file">The file to rotate.</param>
+    /// <param name="rotation">The amount to rotate the file by.</param>
+    /// <param name="overwriteFileDirectly">Whether to overwrite the file directly or create a separate file first and then delete the old one.</param>
+    /// <param name="pagesFolder">Where to save the result to. Overrides <paramref name="overwriteFileDirectly"/> if set to a folder different from <paramref name="file"/>'s.</param>
+    /// <returns>The resulting file. If <paramref name="overwriteFileDirectly"/> is true, <paramref name="file"/> is returned.</returns>
+    private static async Task<StorageFile> RotateFileAsync(StorageFile file, BitmapRotation rotation, bool overwriteFileDirectly, StorageFolder pagesFolder)
+    {
+        try
+        {
+            if (rotation == BitmapRotation.None) return file;
+
+            bool isFolderChanging = pagesFolder.Path != (await file.GetParentAsync()).Path;
+
+            // create empty file to save to
+            TaskCompletionSource<StorageFile> targetFileCreation = new();
+            StorageFile targetFile = file;
+            if (isFolderChanging || !overwriteFileDirectly)
+            {
+                _ = Task.Run(async () =>
+                {
+                    targetFileCreation.TrySetResult(await pagesFolder.CreateFileAsync(file.Name, CreationCollisionOption.GenerateUniqueName));
+                });
+            }
+            else
+            {
+                targetFileCreation.TrySetResult(targetFile);
+            }
+
+            // perform edit
+            using (IRandomAccessStream sourceFileStream = await file.OpenAsync(FileAccessMode.Read))
+            {
+                // load bitmap
+                BitmapDecoder decoder = await BitmapDecoder.CreateAsync(sourceFileStream);
+                using SoftwareBitmap softwareBitmap = await decoder.GetSoftwareBitmapAsync();
+
+                // get target file
+                targetFile = await targetFileCreation.Task;
+                using IRandomAccessStream targetFileStream = await targetFile.OpenAsync(FileAccessMode.ReadWrite);
+
+                // rotate
+                BitmapEncoder encoder = await BitmapEncoder.CreateAsync(GetBitmapEncoderIdForFile(file), targetFileStream);
+                encoder.SetSoftwareBitmap(softwareBitmap);
+                encoder.BitmapTransform.Rotation = rotation;
+
+                await encoder.FlushAsync();
+            }
+
+            return targetFile;
+        }
+        catch (Exception e)
+        {
+            throw new ApplicationException("Rotating page failed", e);
+        }
+    }
+
+    /// <summary>
+    /// Rotates files.
+    /// </summary>
+    /// <param name="instructions">Which file to rotate how much.</param>
+    /// <param name="overwriteFilesDirectly">Whether to overwrite the files directly or create a separate file first and then delete the old one.</param>
+    /// <param name="pagesFolder">Where to save the result to. Overrides <paramref name="overwriteFileDirectly"/> if set to a folder different from <paramref name="file"/>'s.</param>
+    public static async Task RotateFilesAsync(Dictionary<StorageFile, RotationIntent> instructions, bool overwriteFilesDirectly, StorageFolder pagesFolder)
+    {
+        // split instructions
+        Dictionary<StorageFile, RotationIntent> autos = instructions.Where((x) => x.Value == RotationIntent.Automatic).ToDictionary();
+        Dictionary<StorageFile, RotationIntent> predetermined = instructions.Where((x) => x.Value != RotationIntent.Automatic).ToDictionary();
+        Dictionary<StorageFile, BitmapRotation> mergedInstructions = new();
+
+        // get recommended rotations first
+        if (autos.Count > 0)
+        {
+            foreach (KeyValuePair<StorageFile, RotationIntent> auto in autos)
+            {
+                BitmapRotation? rotation = OcrService.GetRecommendedRotation(auto.Key);
+                if (rotation != null)
+                {
+                    mergedInstructions.Add(auto.Key, (BitmapRotation)rotation);
+
+                    // analytics
+                    if ((BitmapRotation)rotation != BitmapRotation.None)
+                        SentryService?.TrackEvent(AnalyticsEvent.AutoRotatedPage, new Dictionary<string, string>
+                        {
+                            { "rotation", ((BitmapRotation)rotation).ToString() }
+                        });
+                }
+            }
+        }
+
+        // add predetermined instructions
+        foreach (KeyValuePair<StorageFile, RotationIntent> instruction in predetermined)
+        {
+            mergedInstructions.Add(instruction.Key, RotationIntentToBitmapRotation(instruction.Value));
+        }
+
+        // process instructions
+        await RotateFilesAsync(mergedInstructions, overwriteFilesDirectly, pagesFolder);
+    }
+
+    /// <summary>
+    /// Rotates pages.
+    /// </summary>
+    /// <param name="instructions">Which page to rotate how much.</param>
+    /// <param name="pagesFolder">Where to save the result to. Overrides <paramref name="overwriteFileDirectly"/> if set to a folder different from <paramref name="file"/>'s.</param>
+    /// <param name="uiDispatcherQueue">The UI dispatcher queue.</param>
+    /// <returns>The actual rotations performed for each file.</returns>
+    public async Task<Dictionary<ImagePage, BitmapRotation>> RotatePagesAsync(Dictionary<ImagePage, RotationIntent> instructions, StorageFolder pagesFolder, DispatcherQueue uiDispatcherQueue)
+    {
+        // split instructions
+        Dictionary<ImagePage, RotationIntent> autos = instructions.Where((x) => x.Value == RotationIntent.Automatic).ToDictionary();
+        Dictionary<ImagePage, RotationIntent> predetermined = instructions.Where((x) => x.Value != RotationIntent.Automatic).ToDictionary();
+        Dictionary<ImagePage, BitmapRotation> mergedInstructions = new();
+
+        // get recommended rotations first
+        if (autos.Count > 0)
+        {
+            foreach (KeyValuePair<ImagePage, RotationIntent> auto in autos)
+            {
+                BitmapRotation? rotation = OcrService.GetRecommendedRotation(auto.Key.SourceFile);
+                if (rotation != null)
+                {
+                    mergedInstructions.Add(auto.Key, (BitmapRotation)rotation);
+                }
+            }
+        }
+
+        // add predetermined instructions
+        foreach (KeyValuePair<ImagePage, RotationIntent> instruction in predetermined)
+        {
+            mergedInstructions.Add(instruction.Key, RotationIntentToBitmapRotation(instruction.Value));
+        }
+
+        // process instructions
+        await RotatePagesAsync(mergedInstructions, pagesFolder, uiDispatcherQueue);
+
+        // update save state
+        if (mergedInstructions.Count > 0 && mergedInstructions.Values.Any((x) => x != BitmapRotation.None))
+            BumpRevision();
+
+        return mergedInstructions;
+    }
+
+    /// <summary>
+    /// Applies an <see cref="ImageFilter"/> to pages.
+    /// </summary>
+    /// <param name="pages">The pages to apply the filter to.</param>
+    /// <param name="filter">The filter to apply.</param>
+    public async Task ApplyFilterToPagesAsync(List<ImagePage> pages, ImageFilter filter, DispatcherQueue uiDispatcherQueue)
+    {
+        TaskCompletionSource process = new();
+        if (pages.Count > 1)
+            Messenger.Send(new ShowIndeterminateProgressDialogMessage(Resources.Strings.Resources.ApplyingChanges, process.Task));
+
+        await StartEditingAsync();
+
+        Dictionary<ImagePage, ImageFilter> previousFilters = pages.ToDictionary(x => x, x => x.Filter);
+        try
+        {
+            foreach (ImagePage page in pages)
+            {
+                page.Filter = filter;
+            }
+
+            await GeneratePagePreviewsAsync(pages, uiDispatcherQueue);
+        }
+        catch (Exception exc)
+        {
+            foreach (var previousState in previousFilters)
+            {
+                previousState.Key.Filter = previousState.Value;
+            }
+
+            await GeneratePagePreviewsAsync(pages, uiDispatcherQueue);
+
+            throw new ActionFailedAndRolledBackException(exc);
+        }
+        finally
+        {
+            BumpRevision();
+            FinishEditing();
+            process.TrySetResult();
+        }
+    }
+
+    /// <summary>
+    /// Renders a bitmap with effects (<see cref="ImageFilter"/>, brightness, contrast) and ink applied.
+    /// </summary>
+    /// <param name="sourceStream">The bitmap source stream.</param>
+    /// <param name="encoder">The encoder load the resulting pixel data into.</param>
+    /// <param name="filter">The filter to render.</param>
+    /// <param name="brightness">The brightness adjustment to apply.</param>
+    /// <param name="contrast">The contrast adjustment to apply.</param>
+    /// <param name="strokes">
+    /// The ink to draw on top of the effects, in the source's pixel space.
+    /// </param>
+    /// <param name="scale">
+    /// Factor by which to scale the encoded result. Defaults to <c>1.0</c> (full source resolution); pass a
+    /// smaller value to downscale (e.g. when generating previews). Final saves must keep the default so they
+    /// don't lose resolution.
+    /// </param>
+    public static async Task ApplyEffectsAsync(IRandomAccessStream sourceStream, BitmapEncoder encoder, ImageFilter filter, int brightness, int contrast, IReadOnlyList<InkStroke>? strokes = null, double scale = 1.0)
+    {
+        // get source DPI
+        double dpiX = 96.0;
+        double dpiY = 96.0;
+        BitmapDecoder sourceDecoder = await BitmapDecoder.CreateAsync(sourceStream);
+        if (sourceDecoder.DpiX > 0) dpiX = sourceDecoder.DpiX;
+        if (sourceDecoder.DpiY > 0) dpiY = sourceDecoder.DpiY;
+        sourceStream.Seek(0);
+
+        CanvasDevice device = CanvasDevice.GetSharedDevice();
+        using CanvasBitmap bitmap = await CanvasBitmap.LoadAsync(device, sourceStream);
+        using CanvasRenderTarget renderer = new CanvasRenderTarget(device, bitmap.SizeInPixels.Width, bitmap.SizeInPixels.Height, bitmap.Dpi);
+        using CanvasDrawingSession session = renderer.CreateDrawingSession();
+
+        ICanvasImage effectChain = ImageEffectsHelper.CreateEffectChain(bitmap, filter, brightness, contrast);
+        InkRenderingHelpers.DrawImageWithInk(session, device, effectChain, strokes ?? []);
+        session.Flush();
+
+        // encode result, preserving the source's real DPI
+        encoder.SetPixelData(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Ignore,
+                                 (uint)renderer.SizeInPixels.Width, (uint)renderer.SizeInPixels.Height,
+                                 dpiX, dpiY, renderer.GetPixelBytes());
+        if (scale != 1.0)
+        {
+            encoder.BitmapTransform.ScaledWidth = (uint)(renderer.SizeInPixels.Width * scale);
+            encoder.BitmapTransform.ScaledHeight = (uint)(renderer.SizeInPixels.Height * scale);
+        }
+        await encoder.FlushAsync();
+    }
+    
+    protected async Task GeneratePagePreviewsAsync(List<ImagePage> pages, DispatcherQueue uiDispatcherQueue)
+    {
+        try
+        {
+            foreach (ImagePage page in pages)
+            {
+                if (!page.IsUsingDestructiveEffects)
+                {
+                    // page doesn't require separate preview file
+                    await page.UpdatePreviewFileAsync(null, uiDispatcherQueue);
+                    continue;
+                }
+
+                // create preview file
+                StorageFile targetFile = await AppDataService.PreviewFolder.CreateFileAsync(page.SourceFile.Name, CreationCollisionOption.GenerateUniqueName);
+
+                // apply effects
+                using (var sourceStream = await page.SourceFile.OpenAsync(FileAccessMode.Read))
+                using (var targetStream = await targetFile.OpenAsync(FileAccessMode.ReadWrite))
+                {
+                    BitmapEncoder encoder = await BitmapEncoder.CreateAsync(GetBitmapEncoderIdForFile(targetFile), targetStream);
+                    await ApplyEffectsAsync(sourceStream, encoder, page.Filter, page.Brightness, page.Contrast, page.InkStrokes, previewScale);
+                }
+
+                // update preview file
+                await page.UpdatePreviewFileAsync(targetFile, uiDispatcherQueue);
+            }
+        }
+        catch (Exception exc)
+        {
+            throw new ActionFailedAndRolledBackException(exc);
+        }
+    }
+
+    protected async Task GeneratePagePreviewsAsync(List<PdfPage> pages, DispatcherQueue uiDispatcherQueue)
+    {
+        try
+        {
+            using IRandomAccessStream fileStream = await ((PdfProject)this).SourceFile!.File.OpenAsync(FileAccessMode.Read);
+            Windows.Data.Pdf.PdfDocument document = await Windows.Data.Pdf.PdfDocument.LoadFromStreamAsync(fileStream);
+            foreach (PdfPage page in pages)
+            {
+                StorageFile previewFile = await AppDataService.PreviewFolder.CreateFileAsync("pdf_thumbnail.png", CreationCollisionOption.GenerateUniqueName);
+                using (IRandomAccessStream previewFileStream = await previewFile.OpenAsync(FileAccessMode.ReadWrite))
+                {
+                    // render a small thumbnail (instead of the page's full resolution); only constrain the
+                    // longest side so the page's aspect ratio is preserved
+                    Windows.Data.Pdf.PdfPage documentPage = document.GetPage(page.IndexInPdf);
+                    Windows.Data.Pdf.PdfPageRenderOptions renderOptions = new();
+                    if (documentPage.Size.Width >= documentPage.Size.Height)
+                        renderOptions.DestinationWidth = pdfThumbnailSize;
+                    else
+                        renderOptions.DestinationHeight = pdfThumbnailSize;
+
+                    await documentPage.RenderToStreamAsync(previewFileStream, renderOptions);
+                }
+
+                // update preview file
+                await page.UpdatePreviewFileAsync(previewFile, uiDispatcherQueue);
+            }
+        }
+        catch (Exception exc)
+        {
+            throw new ActionFailedAndRolledBackException(exc);
+        }
+    }
+
+    public async Task<List<AppliedCrop>> CropPagesAsync(List<ImagePage> pages, Rect cropRegion, StorageFolder pagesFolder, DispatcherQueue uiDispatcherQueue)
+    {
+        TaskCompletionSource process = new();
+        if (pages.Count > 1)
+            Messenger.Send(new ShowIndeterminateProgressDialogMessage(Resources.Strings.Resources.ApplyingChanges, process.Task));
+
+        List<AppliedCrop> result = [];
+        await StartEditingAsync();
+        try
+        {
+            foreach (ImagePage page in pages)
+            {
+                StorageFile oldFile = page.SourceFile;
+                StorageFile? newFile = null;
+                AppliedCrop appliedCrop = new(page, oldFile, page.Width, page.Height);
+
+                await Task.Run(async () => newFile = await CropFileAsync(page.SourceFile, cropRegion, false, pagesFolder));
+                page.Width = (uint)Math.Round(cropRegion.Width);
+                page.Height = (uint)Math.Round(cropRegion.Height);
+
+                // move the page's ink along with its pixels
+                if (page.HasInk)
+                {
+                    page.InkStrokes = InkRenderingHelpers.TransformStrokes(page.InkStrokes,
+                        Matrix3x2.CreateTranslation((float)-cropRegion.X, (float)-cropRegion.Y));
+                }
+
+                await page.ChangeSourceFileAsync(pagesFolder, newFile!, uiDispatcherQueue);
+
+                result.Add(appliedCrop);
+            }
+
+            // update previews
+            await GeneratePagePreviewsAsync(pages, uiDispatcherQueue);
+        }
+        catch (Exception exc)
+        {
+            // roll back changes
+            foreach (AppliedCrop appliedCrop in result)
+            {
+                StorageFile croppedFile = appliedCrop.Page.SourceFile;
+
+                // restore previous file
+                StorageFolder? previousParent = await appliedCrop.PreviousFile.GetParentAsync();
+                if (previousParent == null || previousParent.Path != pagesFolder.Path)
+                    await appliedCrop.PreviousFile.MoveAsync(pagesFolder, appliedCrop.PreviousFile.Name, NameCollisionOption.GenerateUniqueName);
+                appliedCrop.Page.Width = appliedCrop.PreviousWidth;
+                appliedCrop.Page.Height = appliedCrop.PreviousHeight;
+
+                await appliedCrop.Page.ChangeSourceFileAsync(pagesFolder, appliedCrop.PreviousFile, uiDispatcherQueue);
+
+                // delete cropped file
+                _ = Task.Run(async () => await croppedFile.DeleteAsync(StorageDeleteOption.PermanentDelete));
+            }
+
+            throw new ActionFailedAndRolledBackException(exc);
+        }
+        finally
+        {
+            BumpRevision();
+            FinishEditing();
+            process.TrySetResult();
+        }
+
+        // move previous files to undo folder, making sure that concurrent saves aren't interrupted
+        foreach (AppliedCrop appliedCrop in result)
+        {            
+            await saveSemaphore.WaitAsync();
+            try
+            {
+                await appliedCrop.PreviousFile.MoveAsync(AppDataService.UndoFolder, appliedCrop.PreviousFile.Name, NameCollisionOption.GenerateUniqueName);
+            }
+            catch (Exception exc)
+            {
+                LogService?.Log.Error(exc, "Failed to retire a cropped page's former source file");
+            }
+            finally
+            {
+                saveSemaphore.Release();
+            }
+        }
+
+        return result;
+    }
+
+    public async Task<List<ImagePage>> CropPagesAsCopyAsync(List<ImagePage> pages, Rect cropRegion, StorageFolder pagesFolder, DispatcherQueue uiDispatcherQueue)
+    {
+        TaskCompletionSource process = new();
+        if (pages.Count > 1)
+            Messenger.Send(new ShowIndeterminateProgressDialogMessage(Resources.Strings.Resources.ApplyingChanges, process.Task));
+
+        List<ImagePage> result = [];
+        await StartEditingAsync();
+        try
+        {
+            foreach (ImagePage page in pages)
+            {
+                StorageFile newFile;
+
+                // copy file
+                newFile = await page.SourceFile.CopyAsync(pagesFolder, page.SourceFile.Name, NameCollisionOption.GenerateUniqueName);
+
+                // crop
+                await Task.Run(async () => await CropFileAsync(newFile, cropRegion, true, pagesFolder));
+                page.Width = (uint)Math.Round(cropRegion.Width);
+                page.Height = (uint)Math.Round(cropRegion.Height);
+
+                // the copy carries the ink, moved along with the crop; the original page keeps its own
+                List<InkStroke> croppedStrokes = page.HasInk
+                    ? InkRenderingHelpers.TransformStrokes(page.InkStrokes, Matrix3x2.CreateTranslation((float)-cropRegion.X, (float)-cropRegion.Y))
+                    : [];
+
+                // generate page
+                ImagePage? imagePage = page as ImagePage;
+                string? fileName = imagePage?.FileNameInfo?.DesiredName;
+                StorageFolder? targetFolder = imagePage?.TargetFolder;
+                ProjectFileInsertion insertion = new(newFile, page.Index + 1, fileName, targetFolder,
+                    imagePage?.BaseFilter ?? ImageFilter.None, imagePage?.Filter ?? ImageFilter.None,
+                    imagePage?.Brightness ?? AppConfig.DefaultBrightness, imagePage?.Contrast ?? AppConfig.DefaultContrast,
+                    croppedStrokes);
+                result.AddRange(await AddFilesInternalAsync([insertion], false, uiDispatcherQueue));
+            }
+
+            // update previews
+            await GeneratePagePreviewsAsync(pages, uiDispatcherQueue);
+        }
+        catch (Exception exc)
+        {
+            // roll back changes
+            foreach (ImagePage newPage in result)
+            {
+                StorageFile croppedFile = newPage.SourceFile;
+
+                // delete cropped file
+                _ = Task.Run(async () => await croppedFile.DeleteAsync(StorageDeleteOption.PermanentDelete));
+            }
+
+            throw new ActionFailedAndRolledBackException(exc);
+        }
+        finally
+        {
+            BumpRevision();
+            FinishEditing();
+            process.TrySetResult();
+        }
+
+        return result;
+    }
+
+    private static async Task<StorageFile> CropFileAsync(StorageFile file, Rect cropRegion, bool overwriteFileDirectly, StorageFolder pagesFolder)
+    {
+        try
+        {
+            bool isFolderChanging = pagesFolder.Path != (await file.GetParentAsync()).Path;
+
+            // create empty file to save to
+            TaskCompletionSource<StorageFile> targetFileCreation = new();
+            StorageFile targetFile = file;
+            if (isFolderChanging || !overwriteFileDirectly)
+            {
+                _ = Task.Run(async () =>
+                {
+                    targetFileCreation.TrySetResult(await pagesFolder.CreateFileAsync(file.Name, CreationCollisionOption.GenerateUniqueName));
+                });
+            }
+            else
+            {
+                targetFileCreation.TrySetResult(targetFile);
+            }
+
+            // perform edit
+            cropRegion.X = Math.Max(cropRegion.X, 0);
+            cropRegion.Y = Math.Max(cropRegion.Y, 0);
+            uint x = (uint)Math.Floor(cropRegion.X);
+            uint y = (uint)Math.Floor(cropRegion.Y);
+            uint width = (uint)Math.Floor(cropRegion.Width);
+            uint height = (uint)Math.Floor(cropRegion.Height);
+
+            using (IRandomAccessStream sourceStream = await file.OpenAsync(FileAccessMode.Read))
+            {
+                BitmapDecoder decoder = await BitmapDecoder.CreateAsync(sourceStream);
+                using SoftwareBitmap softwareBitmap = await decoder.GetSoftwareBitmapAsync();
+                targetFile = await targetFileCreation.Task;
+                using IRandomAccessStream targetStream = await targetFile.OpenAsync(FileAccessMode.ReadWrite);
+                
+                BitmapEncoder encoder = await BitmapEncoder.CreateAsync(GetBitmapEncoderIdForFile(file), targetStream);
+                encoder.SetSoftwareBitmap(softwareBitmap);
+                encoder.BitmapTransform.Bounds = new BitmapBounds
+                {
+                    X = x,
+                    Y = y,
+                    Width = width,
+                    Height = height
+                };
+                await encoder.FlushAsync();
+            }
+
+            return targetFile;
+        }
+        catch (Exception e)
+        {
+            throw new ApplicationException("Cropping page failed", e);
+        }
+    }
+
+    public async Task SetInkStrokesAsync(ImagePage page, IReadOnlyList<InkStroke> strokes, DispatcherQueue uiDispatcherQueue)
+    {
+        await StartEditingAsync();
+        IReadOnlyList<InkStroke> previousStrokes = page.InkStrokes;
+        try
+        {
+            page.InkStrokes = strokes;
+
+            // update previews
+            await GeneratePagePreviewsAsync([page], uiDispatcherQueue);
+        }
+        catch (Exception exc)
+        {
+            page.InkStrokes = previousStrokes;
+            await GeneratePagePreviewsAsync([page], uiDispatcherQueue);
+
+            throw new ActionFailedAndRolledBackException(exc);
+        }
+        finally
+        {
+            BumpRevision();
+            FinishEditing();
+        }
+    }
+
+    /// <summary>
+    /// Copies a set of pages and adds ink strokes to the copies, leaving the originals as they are.
+    /// </summary>
+    /// <param name="pages">The pages to copy and draw on.</param>
+    /// <param name="strokes">The strokes to put on all copies.</param>
+    public async Task<List<ImagePage>> AddInkedCopiesOfPagesAsync(List<ImagePage> pages, IReadOnlyList<InkStroke> strokes, StorageFolder pagesFolder, DispatcherQueue uiDispatcherQueue)
+    {
+        TaskCompletionSource process = new();
+        if (pages.Count > 1)
+            Messenger.Send(new ShowIndeterminateProgressDialogMessage(Resources.Strings.Resources.ApplyingChanges, process.Task));
+
+        List<ImagePage> result = [];
+        await StartEditingAsync();
+        try
+        {
+            foreach (ImagePage page in pages)
+            {
+                StorageFile newFile = await page.SourceFile.CopyAsync(pagesFolder, page.SourceFile.Name, NameCollisionOption.GenerateUniqueName);
+
+                ProjectFileInsertion insertion = new(newFile, page.Index + 1, page.FileNameInfo?.DesiredName, page.TargetFolder,
+                    page.BaseFilter, page.Filter, page.Brightness, page.Contrast, strokes);
+                result.AddRange(await AddFilesInternalAsync([insertion], false, uiDispatcherQueue));
+            }
+        }
+        catch (Exception exc)
+        {
+            // roll back changes
+            foreach (ImagePage newPage in result)
+            {
+                StorageFile copiedFile = newPage.SourceFile;
+                _ = Task.Run(async () => await copiedFile.DeleteAsync(StorageDeleteOption.PermanentDelete));
+            }
+
+            throw new ActionFailedAndRolledBackException(exc);
+        }
+        finally
+        {
+            BumpRevision();
+            FinishEditing();
+            process.TrySetResult();
+        }
+
+        return result;
+    }
+
+    public void SetBrightness(ImagePage page, int brightness, DispatcherQueue uiDispatcherQueue)
+    {
+        consecutiveAtomicActionMergeTimers.TryGetValue(page, out ThreadPoolTimer? existingTimer);
+        existingTimer?.Cancel();
+
+        // Commit the value immediately so a save that fires before the debounce elapses persists the current
+        // value rather than a stale one. The timer now only debounces the expensive preview regeneration.
+        page.DisplayedBrightness = brightness;
+        page.Brightness = brightness;
+        BumpRevision();
+
+        consecutiveAtomicActionMergeTimers[page] = ThreadPoolTimer.CreateTimer(async (timer) =>
+        {
+            consecutiveAtomicActionMergeTimers.TryRemove(page, out _);
+            await GeneratePagePreviewsAsync(new List<ImagePage>([page]), uiDispatcherQueue);
+        }, AppConfig.ConsecutiveAtomicActionMergeTime);
+    }
+
+    public void SetContrast(ImagePage page, int contrast, DispatcherQueue uiDispatcherQueue)
+    {
+        consecutiveAtomicActionMergeTimers.TryGetValue(page, out ThreadPoolTimer? existingTimer);
+        existingTimer?.Cancel();
+
+        page.DisplayedContrast = contrast;
+        page.Contrast = contrast;
+        BumpRevision();
+
+        consecutiveAtomicActionMergeTimers[page] = ThreadPoolTimer.CreateTimer(async (timer) =>
+        {
+            consecutiveAtomicActionMergeTimers.TryRemove(page, out _);
+            await GeneratePagePreviewsAsync(new List<ImagePage>([page]), uiDispatcherQueue);
+        }, AppConfig.ConsecutiveAtomicActionMergeTime);
+    }
+
+    /// <summary>
+    /// Reorders the project pages.
+    /// </summary>
+    /// <param name="targetOrder">The desired order.</param>
+    public async Task<bool> ApplyOrderOfPagesAsync(List<IProjectPage> targetOrder, DispatcherQueue uiDispatcherQueue)
+    {
+        bool reordered = false;
+        await StartEditingAsync();
+        try
+        {
+            await uiDispatcherQueue.RunOnThreadAndWaitAsync(DispatcherQueuePriority.Normal, () =>
+            {
+                for (int i = 0; i < targetOrder.Count; i++)
+                {
+                    int currentIndex = Pages.IndexOf(targetOrder[i]);
+                    if (currentIndex != i)
+                    {
+                        Pages.Move(currentIndex, i);
+                        reordered = true;
+                    }
+                    Pages[i].Index = i;
+                }
+            });
+
+            if (reordered)
+                BumpRevision();
+        }
+        finally
+        {
+            FinishEditing();
+        }
+
+        return reordered;
+    }
+
+    public static Guid GetBitmapEncoderIdForFile(StorageFile file)
+    {
+        switch (file.FileType.ToLower())
+        {
+            case ".jpg":
+            case ".jpeg":
+                return BitmapEncoder.JpegEncoderId;
+            case ".png":
+                return BitmapEncoder.PngEncoderId;
+            case ".tif":
+            case ".tiff":
+                return BitmapEncoder.TiffEncoderId;
+            case ".bmp":
+                return BitmapEncoder.BmpEncoderId;
+            default:
+                throw new ArgumentException($"Failed to get BitmapEncoder ID for file");
+        }
+    }
+
+    private async Task StartEditingAsync()
+    {
+        await projectObjectSemaphore.WaitAsync();
+        await changesFolderSemaphore.WaitAsync();
+    }
+
+    private void FinishEditing()
+    {
+        projectObjectSemaphore.Release();
+        changesFolderSemaphore.Release();
+    }
+
+    protected void BumpRevision()
+    {
+        Interlocked.Increment(ref contentRevision);
+        OnPropertyChanged(nameof(IsSaved));
+        ContentChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Captures the current content revision. Call while holding <see cref="projectObjectSemaphore"/> together
+    /// with building the save snapshot, so the returned value matches exactly what the snapshot captured.
+    /// </summary>
+    protected long CaptureContentRevision() => Interlocked.Read(ref contentRevision);
+
+    /// <summary>
+    /// Marks the given content revision (captured via <see cref="CaptureContentRevision"/> at snapshot time) as
+    /// saved.
+    /// </summary>
+    protected void MarkRevisionSaved(long revision)
+    {
+        long current = Interlocked.Read(ref savedRevision);
+        while (revision > current)
+        {
+            long original = Interlocked.CompareExchange(ref savedRevision, revision, current);
+            if (original == current)
+                break;
+            current = original;
+        }
+        OnPropertyChanged(nameof(IsSaved));
+    }
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// MISCELLANEOUS ////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+public record FileHandle(StorageFile File, IRandomAccessStream FileStream);
+public record ProjectFileInsertion(StorageFile File, int Index, string? FileName, StorageFolder? TargetFolder, ImageFilter BaseFilter, ImageFilter Filter, int Brightness, int Contrast, IReadOnlyList<InkStroke>? InkStrokes = null);
+public record AppliedCrop(ImagePage Page, StorageFile PreviousFile, uint PreviousWidth, uint PreviousHeight);

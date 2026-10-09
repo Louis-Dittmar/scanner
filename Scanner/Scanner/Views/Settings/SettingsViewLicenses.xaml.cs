@@ -1,0 +1,92 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.DependencyInjection;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Navigation;
+using Scanner.Services.Interfaces;
+using Scanner.ViewModels;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices.WindowsRuntime;
+using System.Threading.Tasks;
+using Windows.Foundation;
+using Windows.Foundation.Collections;
+using Windows.Storage;
+
+
+namespace Scanner.Views.Settings;
+
+[ObservableObject]
+public sealed partial class SettingsViewLicenses : SettingsPage
+{
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DECLARATIONS /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    [ObservableProperty]
+    private List<License> licenses;
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // CONSTRUCTORS / FACTORIES /////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    public SettingsViewLicenses()
+    {
+        this.InitializeComponent();
+        Ioc.Default.GetService<ILogService>()?.Log.Information("View loaded");
+
+        _ = LoadLicensesAsync();
+    }
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // METHODS //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private async Task LoadLicensesAsync()
+    {
+        List<License> result = new List<License>();
+
+        // get licenses folder
+        string licensesFolderPath = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName)
+            + Path.DirectorySeparatorChar
+            + "Resources"
+            + Path.DirectorySeparatorChar
+            + "Licenses";
+        StorageFolder licensesFolder = await StorageFolder.GetFolderFromPathAsync(licensesFolderPath);
+
+        // load licenses
+        foreach (StorageFile file in await licensesFolder.GetFilesAsync())
+        {
+            string text = await FileIO.ReadTextAsync(file);
+            result.Add(new License
+            {
+                Title = file.DisplayName,
+                Text = text
+            });
+        }
+
+        Licenses = result;
+    }
+
+    private void ButtonBack_Click(object sender, RoutedEventArgs e)
+    {
+        OnGoBackRequested();
+    }
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// MISCELLANEOUS ////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+public class License
+{
+    public string Title;
+    public string Text;
+}

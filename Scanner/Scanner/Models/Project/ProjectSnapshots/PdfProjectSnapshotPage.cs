@@ -1,0 +1,62 @@
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.DependencyInjection;
+using Microsoft.UI;
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml.Media;
+using Scanner.Extensions;
+using Scanner.Models.Interfaces;
+using Scanner.Services.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Windows.Devices.Scanners;
+using Windows.Graphics.Imaging;
+using Windows.Storage;
+using Windows.UI.Input.Inking;
+using Windows.Storage.Streams;
+using WinRT.Interop;
+using static Scanner.Helpers.Helpers;
+
+namespace Scanner.Models;
+
+public partial class PdfProjectSnapshotPage : IProjectSnapshotPage
+{
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DECLARATIONS /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    public StorageFile SourceFile { get; }
+    public uint? IndexInSourceFile { get; }
+
+    public ImageFilter Filter { get; }
+
+    public int Brightness { get; }
+    public int Contrast { get; }
+
+    public IReadOnlyList<InkStroke> InkStrokes { get; }
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // CONSTRUCTORS / FACTORIES /////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    public PdfProjectSnapshotPage(StorageFile sourceFile, uint? indexInSourceFile, ImageFilter filter, int brightness, int contrast, IReadOnlyList<InkStroke> inkStrokes)
+    {
+        SourceFile = sourceFile;
+        IndexInSourceFile = indexInSourceFile;
+        Filter = filter;
+        Brightness = brightness;
+        Contrast = contrast;
+        InkStrokes = inkStrokes;
+    }
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // METHODS //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+}

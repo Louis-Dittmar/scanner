@@ -1,0 +1,543 @@
+﻿<Page
+    x:Name="Root"
+    x:Class="Scanner.Views.EditorView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:views="using:Scanner.Views"
+    xmlns:animatedvisuals="using:Microsoft.UI.Xaml.Controls.AnimatedVisuals"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModels="using:Scanner.ViewModels"
+    xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
+    xmlns:core="using:Microsoft.Xaml.Interactivity"
+    xmlns:models="using:Scanner.Models"
+    xmlns:interfaces="using:Scanner.Models.Interfaces"
+    xmlns:ui="using:CommunityToolkit.WinUI"
+    xmlns:media="using:CommunityToolkit.WinUI.Media"
+    xmlns:converters="using:Scanner.Views.Converters"
+    xmlns:customcontrols="using:Scanner.Controls"
+    xmlns:animations="using:CommunityToolkit.WinUI.Animations"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:helpers="using:Scanner.Helpers"
+    xmlns:strings="using:Scanner.Resources.Strings"
+    xmlns:graphics="using:Microsoft.Graphics.Canvas.UI.Xaml"
+    mc:Ignorable="d">
+
+    <Page.DataContext>
+        <viewModels:EditorViewModel x:Name="ViewModel"/>
+    </Page.DataContext>
+
+    <interactivity:Interaction.Behaviors>
+        <core:EventTriggerBehavior EventName="Unloaded">
+            <core:InvokeCommandAction Command="{x:Bind ViewModel.DisposeCommand}"/>
+        </core:EventTriggerBehavior>
+    </interactivity:Interaction.Behaviors>
+
+
+    <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - -  RESOURCES  - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ms-appx:///StylesDictionary.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <media:AttachedCardShadow x:Key="ShadowPage" Offset="0,4" BlurRadius="24" Color="Black" Opacity="0.04" CornerRadius="0" />
+                    <media:AttachedCardShadow x:Key="ShadowPageListPage" Offset="0,2" BlurRadius="12" Color="Black" Opacity="0.04" CornerRadius="2" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <media:AttachedCardShadow x:Key="ShadowPage" Offset="0,4" BlurRadius="24" Color="Black" Opacity="0.2" CornerRadius="0" />
+                    <media:AttachedCardShadow x:Key="ShadowPageListPage" Offset="0,2" BlurRadius="12" Color="Black" Opacity="0.3" CornerRadius="2" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <media:AttachedCardShadow x:Key="ShadowPage" Offset="0,0" BlurRadius="0" Color="Transparent" Opacity="0.0" CornerRadius="0" />
+                    <media:AttachedCardShadow x:Key="ShadowPageListPage" Offset="0,0" BlurRadius="0" Color="Transparent" Opacity="0.0" CornerRadius="2" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+            
+            <!-- Animations -->
+            <animations:ImplicitAnimationSet x:Key="ToolbarBackgroundShowAnimations">
+                <animations:OpacityAnimation Duration="0:0:0.15" From="0.0" To="1.0" EasingMode="EaseInOut"/>
+            </animations:ImplicitAnimationSet>
+                        
+            <!-- DataTemplates -->
+            <DataTemplate x:Key="SimilarPageDataTemplate" x:DataType="models:ImagePage">
+                <ListViewItem Height="88" Padding="24,8,24,8">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="72" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Frame Grid.Column="0" CornerRadius="2" HorizontalAlignment="Center" VerticalAlignment="Center" ui:Effects.Shadow="{ThemeResource ShadowPageListPage}">
+                            <Image x:Name="ImagePreview">
+                                <Image.Source>
+                                    <BitmapImage UriSource="{x:Bind PreviewBitmapUri, Mode=OneWay}" DecodePixelType="Logical" DecodePixelWidth="72" />
+                                </Image.Source>
+                            </Image>
+                        </Frame>
+                        <StackPanel Grid.Column="1" Orientation="Vertical" Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Text="{x:Bind FileNameInfo.DesiredName, Mode=OneWay}" HorizontalAlignment="Left" TextWrapping="Wrap" Visibility="{x:Bind FileNameInfo, Mode=OneWay, Converter={StaticResource NotNullVisibilityConverter}}" />
+                            <TextBlock HorizontalAlignment="Left" VerticalAlignment="Center">
+                                <Span>
+                                    <Run Text="{x:Bind strings:Resources.Page}" />
+                                    <Run Text="{x:Bind PageNumber, Mode=OneWay}" />
+                                </Span>
+                            </TextBlock>
+                        </StackPanel>
+                    </Grid>
+                </ListViewItem>
+            </DataTemplate>
+
+            <!-- XAML Converters -->
+            <converters:AspectRatioStringConverter x:Key="AspectRatioStringConverter" />
+            <converters:BoolOpacityConverter x:Key="BoolOpacityConverter" />
+            <converters:EnumIntComparisonConverter x:Key="EnumIntComparisonConverter" />
+            <converters:NegativeBoolConverter x:Key="NegativeBoolConverter" />
+            <converters:NegativeBoolVisibilityConverter x:Key="NegativeBoolVisibilityConverter" />
+            <converters:NotNullBoolConverter x:Key="NotNullBoolConverter" />
+            <converters:NotNullVisibilityConverter x:Key="NotNullVisibilityConverter" />
+            <converters:NullVisibilityConverter x:Key="NullVisibilityConverter" />
+        </ResourceDictionary>
+    </Page.Resources>
+
+
+    <!-- - - - - - - - - - - - - - - - - - - -  - - - - - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - -  PAGE CONTENT  - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - - - - -  - - - - - - - - - - - - - - - - - - - - -->
+    <Grid x:Name="GridRoot" Visibility="{x:Bind ViewModel.ProjectService.SelectedPages, Mode=OneWay, Converter={StaticResource NullVisibilityConverter}}">
+        <FlipView x:Name="FlipViewPages" Background="Transparent" Style="{StaticResource FlipViewStyleRoundedButtons}" ItemsSource="{x:Bind ViewModel.CurrentProject.Pages, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.ProjectService.SelectedPage, Mode=TwoWay}" Visibility="{x:Bind IsEditingExperienceActive, Mode=OneWay, Converter={StaticResource NegativeBoolVisibilityConverter}}" x:Load="{x:Bind ViewModel.CurrentProject, Mode=OneWay, Converter={StaticResource NotNullBoolConverter}}" SelectionChanged="FlipViewPages_SelectionChanged" Loaded="FlipViewPages_Loaded">
+            <animations:Implicit.HideAnimations>
+                <animations:ImplicitAnimationSet>
+                    <animations:OpacityAnimation To="1.0" Duration="0:0:0.3" />
+                </animations:ImplicitAnimationSet>
+            </animations:Implicit.HideAnimations>
+            
+            <FlipView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel Orientation="Horizontal" Loading="VirtualizingStackPanel_Loading" />
+                </ItemsPanelTemplate>
+            </FlipView.ItemsPanel>
+            
+            <FlipView.ItemTemplate>
+                <DataTemplate x:DataType="interfaces:IProjectPage">
+                    <FlipViewItem x:Name="FlipViewItemPage" DataContextChanged="FlipViewItem_DataContextChanged" Loaded="FlipViewItemPage_Loaded">
+                        <ScrollViewer x:Name="ScrollViewerPage" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" MinZoomFactor="1.0" MaxZoomFactor="2.5" ZoomMode="Enabled" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" SizeChanged="ScrollViewerPage_SizeChanged" ViewChanged="ScrollViewerPage_ViewChanged">
+                            <Border x:Name="BorderPage" Padding="16,16,16,80" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="{Binding ElementName=ScrollViewerPage, Path=ViewportWidth, Mode=OneWay}" MaxHeight="{Binding ElementName=ScrollViewerPage, Path=ViewportHeight, Mode=OneWay}">
+                                <Frame Margin="0" HorizontalAlignment="Center" VerticalAlignment="Center" ui:Effects.Shadow="{ThemeResource ShadowPage}">
+                                    <Viewbox Stretch="Uniform" SizeChanged="ViewboxPage_SizeChanged">
+                                        <graphics:CanvasControl UseSharedDevice="True" CreateResources="CanvasPreview_CreateResources" Draw="CanvasPreview_Draw" DataContextChanged="CanvasPreview_DataContextChanged" SizeChanged="CanvasPage_SizeChanged" Unloaded="CanvasControl_Unloaded" />
+                                    </Viewbox>
+                                </Frame>
+                            </Border>
+                        </ScrollViewer>
+                    </FlipViewItem>
+                </DataTemplate>
+            </FlipView.ItemTemplate>
+        </FlipView>
+
+        <!-- Crop experience -->
+        <controls:ImageCropper x:Name="ImageCropper" Padding="16,16,16,80" Style="{StaticResource CustomImageCropperStyle}" AspectRatio="{x:Bind ViewModel.SelectedAspectRatioValue, Mode=TwoWay}" x:Load="{x:Bind IsCropping, Mode=OneWay}" Loading="ImageCropper_Loading">
+            <animations:Implicit.ShowAnimations>
+                <animations:ImplicitAnimationSet>
+                    <animations:OpacityAnimation From="0.0" To="1.0" Duration="0:0:0.3" />
+                </animations:ImplicitAnimationSet>
+            </animations:Implicit.ShowAnimations>
+
+            <animations:Implicit.HideAnimations>
+                <animations:ImplicitAnimationSet>
+                    <animations:OpacityAnimation To="0.0" Duration="0:0:0.3" />
+                </animations:ImplicitAnimationSet>
+            </animations:Implicit.HideAnimations>
+        </controls:ImageCropper>
+
+        <!-- Draw experience -->
+        <Border x:Name="BorderDraw" x:Load="{x:Bind IsDrawing, Mode=OneWay}">
+            <animations:Implicit.ShowAnimations>
+                <animations:ImplicitAnimationSet>
+                    <animations:OpacityAnimation From="0.0" To="1.0" Duration="0:0:0.3" />
+                </animations:ImplicitAnimationSet>
+            </animations:Implicit.ShowAnimations>
+
+            <animations:Implicit.HideAnimations>
+                <animations:ImplicitAnimationSet>
+                    <animations:OpacityAnimation To="0.0" Duration="0:0:0.3" />
+                </animations:ImplicitAnimationSet>
+            </animations:Implicit.HideAnimations>
+
+            <ScrollViewer x:Name="ScrollViewerDraw" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" MinZoomFactor="1.0" MaxZoomFactor="2.5" ZoomMode="Enabled" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" SizeChanged="ScrollViewerPage_SizeChanged" ViewChanged="ScrollViewerPage_ViewChanged">
+                <Grid Padding="16,16,16,80" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="{Binding ElementName=ScrollViewerDraw, Path=ViewportWidth, Mode=OneWay}" MaxHeight="{Binding ElementName=ScrollViewerDraw, Path=ViewportHeight, Mode=OneWay}">
+                    <Frame HorizontalAlignment="Center" VerticalAlignment="Center" ui:Effects.Shadow="{ThemeResource ShadowPage}">
+                        <Viewbox x:Name="ViewboxDraw" Stretch="Uniform" SizeChanged="ViewboxDraw_SizeChanged">
+                            <graphics:CanvasControl x:Name="CanvasDraw" UseSharedDevice="True" CreateResources="CanvasDraw_CreateResources" Draw="CanvasDraw_Draw" SizeChanged="CanvasPage_SizeChanged" Unloaded="CanvasDraw_Unloaded" />
+                        </Viewbox>
+                    </Frame>
+                    <InkCanvas x:Name="InkCanvasDraw" HorizontalAlignment="Center" VerticalAlignment="Center" Loaded="InkCanvasDraw_Loaded" />
+                </Grid>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Bottom toolbar -->
+        <Grid x:Name="GridToolbar" ColumnSpacing="4" Padding="16,0,16,0" Height="72" HorizontalAlignment="Stretch" VerticalAlignment="Bottom" Visibility="{x:Bind ViewModel.ProjectService.SelectedPage, Mode=OneWay, Converter={StaticResource NotNullVisibilityConverter}}" x:Load="{x:Bind ViewModel.CurrentProject, Mode=OneWay, Converter={StaticResource NotNullBoolConverter}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="80" />
+            </Grid.ColumnDefinitions>
+
+            <Grid x:Name="GridToolbarNavigation" Grid.Column="0" MaxWidth="80" VerticalAlignment="Center">
+                <Border x:Name="BorderToolbarNavigationBackground" Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}" CornerRadius="8" animations:Implicit.ShowAnimations="{StaticResource ToolbarBackgroundShowAnimations}" x:Load="{x:Bind IsToolbarBackgroundVisible, Mode=OneWay}" />
+                <Button x:Name="ButtonNavigation" HorizontalAlignment="Left" CornerRadius="8" VerticalAlignment="Center" Visibility="{x:Bind IsCropping, Mode=OneWay, Converter={StaticResource NegativeBoolVisibilityConverter}}" Style="{StaticResource MutedButtonStyle}" ToolTipService.ToolTip="{x:Bind strings:Resources.GoToPage}" Click="ButtonNavigation_Click">
+                    <TextBlock Text="{x:Bind ProjectNavigationIndicator, Mode=OneWay}" IsHitTestVisible="False" MaxLines="1" Margin="4" Padding="4" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Typography.NumeralAlignment="Tabular" TextTrimming="Clip" Style="{StaticResource CaptionTextBlockStyle}" />
+                </Button>
+                <TextBox x:Name="TextBoxNavigation" FontSize="12" Padding="6,5,8,6" MinWidth="48" MinHeight="28" CornerRadius="8" AcceptsReturn="False" HorizontalAlignment="Stretch" VerticalAlignment="Center" VerticalContentAlignment="Center" Typography.NumeralAlignment="Tabular" Text="{x:Bind ViewModel.ProjectService.SelectedPage.PageNumber, Mode=OneWay}" Style="{StaticResource NoClearButtonTextBoxStyle}" x:Load="{x:Bind IsNavigationTextBoxVisible, Mode=OneWay}" Loaded="TextBoxNavigation_Loaded" LostFocus="TextBoxNavigation_LostFocus" KeyDown="TextBoxNavigation_KeyDown" />
+            </Grid>
+
+            <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Border x:Name="BorderToolbarToolsBackground" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" animations:Implicit.ShowAnimations="{StaticResource ToolbarBackgroundShowAnimations}" x:Load="{x:Bind IsToolbarBackgroundVisible, Mode=OneWay}" />
+
+                <!-- Main editing controls -->
+                <Frame IsEnabled="{x:Bind ViewModel.AreEditingOptionsAvailable, Mode=OneWay}" BorderThickness="1" Visibility="{x:Bind IsEditingExperienceActive, Mode=OneWay, Converter={StaticResource NegativeBoolVisibilityConverter}}">
+                    <Grid>
+                        <ScrollViewer x:Name="ScrollViewerMainEditingControls" Opacity="{x:Bind ViewModel.IsPdfPageSelected, Mode=OneWay, Converter={StaticResource BoolOpacityConverter}, ConverterParameter=invert}" HorizontalScrollMode="Auto" VerticalScrollMode="Disabled" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Hidden" SizeChanged="ScrollViewerMainEditingControls_SizeChanged">
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Button x:Name="ButtonCrop" Style="{StaticResource EditorButtonStyle}" ToolTipService.ToolTip="{x:Bind strings:Resources.CropPageToolTip}" Click="ButtonCrop_Click">
+                                    <FontIcon Glyph="&#xE7A8;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                </Button>
+                                <Button x:Name="ButtonRotate" Style="{StaticResource EditorButtonStyle}" ToolTipService.ToolTip="{x:Bind strings:Resources.RotateToolTip}" Command="{x:Bind ViewModel.RotateCurrentPage90DegreesAsyncCommand}" ContextRequested="ButtonRotate_ContextRequested">
+                                    <Grid>
+                                        <FontIcon Glyph="&#xE7AD;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                        <FontIcon Glyph="&#xE96E;" FontSize="8" Margin="0,0,-8,-8" Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Bottom" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                    </Grid>
+
+                                    <FlyoutBase.AttachedFlyout>
+                                        <MenuFlyout Placement="Top">
+                                            <MenuFlyoutItem Text="{x:Bind strings:Resources.Rotate90}" FontWeight="SemiBold" Command="{x:Bind ViewModel.RotateCurrentPage90DegreesAsyncCommand}" />
+                                            <MenuFlyoutItem Text="{x:Bind strings:Resources.Rotate180}" Command="{x:Bind ViewModel.RotateCurrentPage180DegreesAsyncCommand}" />
+                                            <MenuFlyoutItem Text="{x:Bind strings:Resources.Rotate270}" Command="{x:Bind ViewModel.RotateCurrentPage270DegreesAsyncCommand}" />
+                                            <MenuFlyoutItem Text="{x:Bind strings:Resources.RotateAutomatically}" Command="{x:Bind ViewModel.RotateCurrentPageAutomaticallyAsyncCommand}">
+                                                <MenuFlyoutItem.Icon>
+                                                    <ImageIcon>
+                                                        <ImageIcon.Source>
+                                                            <SvgImageSource UriSource="/Assets/AI Sparkles.svg" RasterizePixelWidth="32" RasterizePixelHeight="32" />
+                                                        </ImageIcon.Source>
+                                                    </ImageIcon>
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                            <MenuFlyoutSeparator />
+                                            <MenuFlyoutItem Text="{x:Bind strings:Resources.Settings}" Command="{x:Bind ViewModel.ShowSettingsCommand}">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE713;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                        </MenuFlyout>
+                                    </FlyoutBase.AttachedFlyout>
+                                </Button>
+                                <Button x:Name="ButtonDraw" Style="{StaticResource EditorButtonStyle}" ToolTipService.ToolTip="{x:Bind strings:Resources.DrawOnPage}" Click="ButtonDraw_Click">
+                                    <FontIcon Glyph="&#xEDC6;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                </Button>
+                                <Button Style="{StaticResource EditorButtonStyle}" ToolTipService.ToolTip="{x:Bind strings:Resources.ApplyFilterToPage}">
+                                    <Grid>
+                                        <FontIcon Glyph="&#xE790;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                    </Grid>
+
+                                    <Button.Flyout>
+                                        <MenuFlyout>
+                                            <RadioMenuFlyoutItem Text="{x:Bind strings:Resources.FilterNone}" IsChecked="{x:Bind IsFilterNone, Mode=OneWay}" IsEnabled="{x:Bind IsFilterNoneAvailable, Mode=OneWay}" Command="{x:Bind ViewModel.ApplyFilterToCurrentPageAsyncCommand}" CommandParameter="{x:Bind models:ImageFilter.None}" />
+                                            <RadioMenuFlyoutItem Text="{x:Bind strings:Resources.FilterGrayscale}" IsChecked="{x:Bind IsFilterGrayscale, Mode=OneWay}" IsEnabled="{x:Bind IsFilterGrayscaleAvailable, Mode=OneWay}" Command="{x:Bind ViewModel.ApplyFilterToCurrentPageAsyncCommand}" CommandParameter="{x:Bind models:ImageFilter.Grayscale}" />
+                                            <RadioMenuFlyoutItem Text="{x:Bind strings:Resources.FilterMonochrome}" IsChecked="{x:Bind IsFilterMonochrome, Mode=OneWay}" IsEnabled="{x:Bind IsFilterMonochromeAvailable, Mode=OneWay}" Command="{x:Bind ViewModel.ApplyFilterToCurrentPageAsyncCommand}" CommandParameter="{x:Bind models:ImageFilter.Monochrome}" />
+                                        </MenuFlyout>
+                                    </Button.Flyout>
+                                </Button>
+                                <Button Style="{StaticResource EditorButtonStyle}" ToolTipService.ToolTip="{x:Bind strings:Resources.Brightness}">
+                                    <FontIcon Glyph="&#xE706;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+
+                                    <Button.Flyout>
+                                        <Flyout x:Name="FlyoutBrightness" Placement="Top" AreOpenCloseAnimationsEnabled="False" LightDismissOverlayMode="Off">
+                                            <Flyout.FlyoutPresenterStyle>
+                                                <Style TargetType="FlyoutPresenter" BasedOn="{StaticResource DefaultFlyoutPresenterStyle}">
+                                                    <Setter Property="MinHeight" Value="0" />
+                                                    <Setter Property="Padding" Value="0" />
+                                                    <Setter Property="Margin" Value="0,48,0,0" />
+                                                </Style>
+                                            </Flyout.FlyoutPresenterStyle>
+
+                                            <StackPanel Orientation="Vertical" Spacing="4">
+                                                <Grid Padding="16,8,16,4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="1*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <TextBlock Grid.Column="0" Text="{x:Bind strings:Resources.Brightness}" MaxLines="1" VerticalAlignment="Center" Style="{StaticResource BaseTextBlockStyle}" />
+                                                    <NumberBox x:Name="NumberBoxBrightness" Grid.Column="1" Margin="0,0,-8,0" Minimum="-100" Maximum="100" SmallChange="1" LargeChange="10" MaxWidth="92" Padding="10,5,40,6" Background="Transparent" BorderThickness="0" Style="{StaticResource NoClearButtonNumberBoxStyle}" Value="{x:Bind ViewModel.DisplayedPageBrightness, Mode=OneWay}" ValueChanged="NumberBoxBrightness_ValueChanged" />
+                                                    <Button x:Name="ButtonBrightnessReset" Grid.Column="1" Width="32" Height="32" Margin="0,0,-8,0" VerticalAlignment="Center" Style="{StaticResource MutedButtonStyle}" ToolTipService.ToolTip="{x:Bind strings:Resources.ResetToDefault}" IsEnabled="{x:Bind ViewModel.CanResetBrightness, Mode=OneWay}" Command="{x:Bind ViewModel.ResetBrightnessCommand}">
+                                                        <FontIcon Glyph="&#xE7A7;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                                    </Button>
+                                                </Grid>
+                                                <StackPanel Orientation="Horizontal" Spacing="12" Padding="16,8,16,8" Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
+                                                    <FontIcon Glyph="&#xEC8A;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                                    <Slider x:Name="SliderBrightness" Orientation="Horizontal" TabIndex="0" Width="148" TickPlacement="Outside" TickFrequency="100" Minimum="-100" Maximum="100" SnapsTo="StepValues" IsThumbToolTipEnabled="False" Value="{x:Bind ViewModel.DisplayedPageBrightnessDouble, Mode=OneWay}" DoubleTapped="SliderBrightness_DoubleTapped" ValueChanged="SliderBrightness_ValueChanged" />
+                                                    <FontIcon Glyph="&#xE706;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Flyout>
+                                    </Button.Flyout>
+                                </Button>
+                                <Button Style="{StaticResource EditorButtonStyle}" ToolTipService.ToolTip="{x:Bind strings:Resources.Contrast}">
+                                    <FontIcon Glyph="&#xE7A1;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+
+                                    <Button.Flyout>
+                                        <Flyout x:Name="FlyoutContrast" Placement="Top" AreOpenCloseAnimationsEnabled="False" LightDismissOverlayMode="Off">
+                                            <Flyout.FlyoutPresenterStyle>
+                                                <Style TargetType="FlyoutPresenter" BasedOn="{StaticResource DefaultFlyoutPresenterStyle}">
+                                                    <Setter Property="MinHeight" Value="0" />
+                                                    <Setter Property="Padding" Value="0" />
+                                                    <Setter Property="Margin" Value="0,48,0,0" />
+                                                </Style>
+                                            </Flyout.FlyoutPresenterStyle>
+
+                                            <StackPanel Orientation="Vertical" Spacing="4">
+                                                <Grid Padding="16,8,16,4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="1*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <TextBlock Grid.Column="0" Text="{x:Bind strings:Resources.Contrast}" MaxLines="1" VerticalAlignment="Center" Style="{StaticResource BaseTextBlockStyle}" />
+                                                    <NumberBox x:Name="NumberBoxContrast" Grid.Column="1" Margin="0,0,-8,0" Minimum="-100" Maximum="100" SmallChange="1" LargeChange="10" MaxWidth="92" Padding="10,5,40,6" Background="Transparent" BorderThickness="0" Style="{StaticResource NoClearButtonNumberBoxStyle}" Value="{x:Bind ViewModel.DisplayedPageContrast, Mode=OneWay}" ValueChanged="NumberBoxContrast_ValueChanged" />
+                                                    <Button x:Name="ButtonContrastReset" Grid.Column="1" Width="32" Height="32" Margin="0,0,-8,0" VerticalAlignment="Center" Style="{StaticResource MutedButtonStyle}" ToolTipService.ToolTip="{x:Bind strings:Resources.ResetToDefault}" IsEnabled="{x:Bind ViewModel.CanResetContrast, Mode=OneWay}" Command="{x:Bind ViewModel.ResetContrastCommand}">
+                                                        <FontIcon Glyph="&#xE7A7;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                                    </Button>
+                                                </Grid>
+                                                <StackPanel Orientation="Horizontal" Spacing="12" Padding="16,8,16,8" Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
+                                                    <FontIcon Glyph="&#xEA3A;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                                    <Slider x:Name="SliderContrast" Orientation="Horizontal" TabIndex="0" Width="148" TickPlacement="Outside" TickFrequency="100" Minimum="-100" Maximum="100" SnapsTo="StepValues" IsThumbToolTipEnabled="False" Value="{x:Bind ViewModel.DisplayedPageContrastDouble, Mode=OneWay}" DoubleTapped="SliderContrast_DoubleTapped" ValueChanged="SliderContrast_ValueChanged" />
+                                                    <FontIcon Glyph="&#xE7A1;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Flyout>
+                                    </Button.Flyout>
+                                </Button>
+                                <Button x:Name="ButtonRemove" Style="{StaticResource EditorButtonStyle}" ToolTipService.ToolTip="{x:Bind strings:Resources.DeletePageToolTip}" Command="{x:Bind ViewModel.RemoveCurrentPageAsyncCommand}">
+                                    <FontIcon Glyph="&#xE74D;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                </Button>
+                            </StackPanel>
+                        </ScrollViewer>
+                        <Grid x:Name="GridReadOnly" ColumnSpacing="12" HorizontalAlignment="Center" VerticalAlignment="Center" x:Load="{x:Bind ViewModel.IsPdfPageSelected, Mode=OneWay}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="1*" />
+                            </Grid.ColumnDefinitions>
+
+                            <FontIcon Grid.Column="0" Glyph="&#xE7B3;" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                            <TextBlock Grid.Column="1" Text="{x:Bind strings:Resources.EditorPdfReadOnly}" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" MaxLines="2" TextWrapping="WrapWholeWords" TextTrimming="WordEllipsis" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" />
+                        </Grid>
+                    </Grid>
+                </Frame>
+            
+                <!-- Crop controls -->
+                <Frame x:Name="FrameCropToolbar" Margin="4" IsEnabled="{x:Bind ViewModel.ProjectService.IsProcessRunning, Mode=OneWay, Converter={StaticResource NegativeBoolConverter}}" x:Load="{x:Bind IsCropping, Mode=OneWay}">
+                    <Grid x:Name="GridCropToolbar" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <Button Grid.Column="0" Margin="0,0,4,0" VerticalAlignment="Center" MaxWidth="200" Style="{StaticResource EditorButtonWithTextStyle}">
+                            <Grid ColumnSpacing="12">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="1*" />
+                                    <RowDefinition Height="1*" />
+                                </Grid.RowDefinitions>
+                                        
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="1*" />
+                                </Grid.ColumnDefinitions>
+
+                                <FontIcon Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" Glyph="&#xE799;" FontSize="16" VerticalAlignment="Center" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{x:Bind strings:Resources.AspectRatio}" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.SelectedAspectRatio, Mode=OneWay, Converter={StaticResource AspectRatioStringConverter}}" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" />
+                            </Grid>
+
+                            <Button.Flyout>
+                                <MenuFlyout x:Name="MenuFlyoutAspectRatio" Placement="Bottom">
+                                    <ToggleMenuFlyoutItem Text="{x:Bind strings:Resources.AspectRatioCustom}" IsChecked="{x:Bind ViewModel.SelectedAspectRatio, Mode=OneWay, Converter={StaticResource EnumIntComparisonConverter}, ConverterParameter=0}" FontWeight="SemiBold" Click="ToggleMenuFlyoutItemAspectRatio_Click" Tag="{x:Bind helpers:AspectRatio.Custom}"/>
+                                    <ToggleMenuFlyoutItem Text="{x:Bind strings:Resources.AspectRatioSquare}" IsChecked="{x:Bind ViewModel.SelectedAspectRatio, Mode=OneWay, Converter={StaticResource EnumIntComparisonConverter}, ConverterParameter=1}" Click="ToggleMenuFlyoutItemAspectRatio_Click" Tag="{x:Bind helpers:AspectRatio.Square}"/>
+                                    <ToggleMenuFlyoutItem Text="{x:Bind strings:Resources.AspectRatio3By2}" IsChecked="{x:Bind ViewModel.SelectedAspectRatio, Mode=OneWay, Converter={StaticResource EnumIntComparisonConverter}, ConverterParameter=2}" Click="ToggleMenuFlyoutItemAspectRatio_Click" Tag="{x:Bind helpers:AspectRatio.ThreeByTwo}"/>
+                                    <ToggleMenuFlyoutItem Text="{x:Bind strings:Resources.AspectRatio4By3}" IsChecked="{x:Bind ViewModel.SelectedAspectRatio, Mode=OneWay, Converter={StaticResource EnumIntComparisonConverter}, ConverterParameter=3}" Click="ToggleMenuFlyoutItemAspectRatio_Click" Tag="{x:Bind helpers:AspectRatio.FourByThree}"/>
+                                    <ToggleMenuFlyoutItem Text="{x:Bind strings:Resources.AspectRatioInternationalHeading}" IsEnabled="False" Margin="0,8,0,0" FontSize="12" FontWeight="SemiBold"/>
+                                    <ToggleMenuFlyoutItem Text="{x:Bind strings:Resources.AspectRatioInternationalDINA}" IsChecked="{x:Bind ViewModel.SelectedAspectRatio, Mode=OneWay, Converter={StaticResource EnumIntComparisonConverter}, ConverterParameter=4}" Click="ToggleMenuFlyoutItemAspectRatio_Click" Tag="{x:Bind helpers:AspectRatio.DinA}"/>
+                                    <ToggleMenuFlyoutItem Text="{x:Bind strings:Resources.AspectRatioNAHeading}" IsEnabled="False" Margin="0,8,0,0" FontSize="12" FontWeight="SemiBold"/>
+                                    <ToggleMenuFlyoutItem Text="{x:Bind strings:Resources.AspectRatioNAANSIA}" IsChecked="{x:Bind ViewModel.SelectedAspectRatio, Mode=OneWay, Converter={StaticResource EnumIntComparisonConverter}, ConverterParameter=5}" Click="ToggleMenuFlyoutItemAspectRatio_Click" Tag="{x:Bind helpers:AspectRatio.AnsiA}"/>
+                                    <ToggleMenuFlyoutItem Text="{x:Bind strings:Resources.AspectRatioNAANSIB}" IsChecked="{x:Bind ViewModel.SelectedAspectRatio, Mode=OneWay, Converter={StaticResource EnumIntComparisonConverter}, ConverterParameter=6}" Click="ToggleMenuFlyoutItemAspectRatio_Click" Tag="{x:Bind helpers:AspectRatio.AnsiB}"/>
+                                    <ToggleMenuFlyoutItem Text="{x:Bind strings:Resources.AspectRatioNAANSIC}" IsChecked="{x:Bind ViewModel.SelectedAspectRatio, Mode=OneWay, Converter={StaticResource EnumIntComparisonConverter}, ConverterParameter=7}" Click="ToggleMenuFlyoutItemAspectRatio_Click" Tag="{x:Bind helpers:AspectRatio.AnsiC}"/>
+                                    <ToggleMenuFlyoutItem Text="{x:Bind strings:Resources.AspectRatioNALegal}" IsChecked="{x:Bind ViewModel.SelectedAspectRatio, Mode=OneWay, Converter={StaticResource EnumIntComparisonConverter}, ConverterParameter=12}" Click="ToggleMenuFlyoutItemAspectRatio_Click" Tag="{x:Bind helpers:AspectRatio.Legal}"/>
+                                    <ToggleMenuFlyoutItem Text="{x:Bind strings:Resources.AspectRatioChineseHeading}" IsEnabled="False" Margin="0,8,0,0" FontSize="12" FontWeight="SemiBold"/>
+                                    <ToggleMenuFlyoutItem Text="{x:Bind strings:Resources.AspectRatioChineseKai16}" IsChecked="{x:Bind ViewModel.SelectedAspectRatio, Mode=OneWay, Converter={StaticResource EnumIntComparisonConverter}, ConverterParameter=10}" Click="ToggleMenuFlyoutItemAspectRatio_Click" Tag="{x:Bind helpers:AspectRatio.Kai16}"/>
+                                    <ToggleMenuFlyoutItem Text="{x:Bind strings:Resources.AspectRatioChineseKai32}" IsChecked="{x:Bind ViewModel.SelectedAspectRatio, Mode=OneWay, Converter={StaticResource EnumIntComparisonConverter}, ConverterParameter=11}" Click="ToggleMenuFlyoutItemAspectRatio_Click" Tag="{x:Bind helpers:AspectRatio.Kai32}"/>
+                                    <MenuFlyoutSeparator />
+                                    <MenuFlyoutItem Text="{x:Bind strings:Resources.FlipAspectRatio}" Icon="Orientation" Click="MenuFlyoutItemCropAspectRatioFlip_Click"/>
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                            <AppBarSeparator />
+                            <SplitButton x:Name="SplitButtonSaveCrop" VerticalAlignment="Stretch" Style="{StaticResource AccentSplitButtonStyle}" IsEnabled="{x:Bind IsSimilarPagesFlyoutOpen, Mode=OneWay, Converter={StaticResource NegativeBoolConverter}}" Click="SplitButtonSaveCrop_Click">
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <FontIcon Grid.Column="0" Glyph="&#xE8FB;" FontSize="16" VerticalAlignment="Center" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind strings:Resources.Apply}" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" />
+                                </Grid>
+
+                                <SplitButton.Flyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem x:Name="MenuFlyoutItemSaveCrop" Text="{x:Bind strings:Resources.Apply}" FontWeight="SemiBold" Click="MenuFlyoutItemSaveCrop_Click">
+                                            <MenuFlyoutItem.Icon>
+                                                <FontIcon Glyph="&#xE8FB;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutItem x:Name="MenuFlyoutItemSaveCropAsCopy" Text="{x:Bind strings:Resources.ApplyAsCopy}" Click="MenuFlyoutItemSaveCropAsCopy_Click" />
+                                        <MenuFlyoutSeparator />
+                                        <MenuFlyoutItem x:Name="MenuFlyoutItemCropSimilarPages" Text="{x:Bind strings:Resources.ApplySimilarPages}" Click="MenuFlyoutItemCropSimilarPages_Click" Loading="MenuFlyoutItemCropSimilarPages_Loading">
+                                            <MenuFlyoutItem.Icon>
+                                                <FontIcon Glyph="&#xE133;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                    </MenuFlyout>
+                                </SplitButton.Flyout>
+                            </SplitButton>
+                            <Button x:Name="ButtonDiscardCrop" Style="{StaticResource EditorButtonStyle}" ToolTipService.ToolTip="{x:Bind strings:Resources.Cancel}" Click="ButtonDiscardCrop_Click">
+                                <FontIcon Glyph="&#xE711;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+
+                                <Button.KeyboardAccelerators>
+                                    <KeyboardAccelerator Key="Escape" />
+                                </Button.KeyboardAccelerators>
+                            </Button>
+                        </StackPanel>
+
+                        <FlyoutBase.AttachedFlyout>
+                            <Flyout x:Name="FlyoutCropSimilarPages" Placement="Top" Opened="FlyoutCropSimilarPages_Opened" Closed="FlyoutCropSimilarPages_Closed">
+                                <Grid MinWidth="300" MaxWidth="300" MaxHeight="600">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="1*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{x:Bind strings:Resources.CropSimilarPages}" Style="{StaticResource BaseTextBlockStyle}"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="{x:Bind strings:Resources.CropSimilarPagesBody}" Style="{StaticResource BodyTextBlockStyle}" />
+
+                                    <ListView Grid.Row="2" Margin="-16,0,-16,0" IsEnabled="False" SelectedIndex="0" Padding="12" SelectionMode="Multiple" ScrollViewer.HorizontalScrollMode="Disabled" ScrollViewer.VerticalScrollMode="Auto" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollBarVisibility="Auto" ItemTemplate="{StaticResource SimilarPageDataTemplate}" Loading="ListViewCropSimilarPagesCurrent_Loading">
+                                        <ListView.ItemContainerTransitions>
+                                            <TransitionCollection />
+                                        </ListView.ItemContainerTransitions>
+                                    </ListView>
+
+                                    <ListView x:Name="ListViewCropSimilarPages" Grid.Row="3" Margin="-16,0,-16,0" Padding="12" Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,1" SelectionMode="Multiple" ScrollViewer.HorizontalScrollMode="Disabled" ScrollViewer.VerticalScrollMode="Auto" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollBarVisibility="Auto" ItemTemplate="{StaticResource SimilarPageDataTemplate}" ItemsSource="{x:Bind ViewModel.SimilarPagesForCrop, Mode=OneWay}" Loading="ListViewCropSimilarPages_Loading" SelectionChanged="ListViewCropSimilarPages_SelectionChanged">
+                                        <ListView.ItemContainerTransitions>
+                                            <TransitionCollection />
+                                        </ListView.ItemContainerTransitions>
+
+                                        <ListView.Header>
+                                            <CheckBox x:Name="CheckBoxCropSimilarPagesSelectAll" Grid.Row="3" Content="{x:Bind strings:Resources.SelectAll}" FontWeight="SemiBold" Margin="14,0,12,12" Padding="12,0,12,0" HorizontalAlignment="Stretch" VerticalContentAlignment="Center" IsThreeState="True" Checked="CheckBoxCropSimilarPagesSelectAll_Checked" Unchecked="CheckBoxCropSimilarPagesSelectAll_Unchecked" Indeterminate="CheckBoxCropSimilarPagesSelectAll_Indeterminate" />
+                                        </ListView.Header>
+                                    </ListView>
+                                    
+                                    <Grid Grid.Row="4" ColumnSpacing="8" Padding="0,16,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="1*" />
+                                            <ColumnDefinition Width="1*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Button x:Name="ButtonCropSimilarPagesConfirm" Grid.Column="0" Content="{x:Bind strings:Resources.Confirm}" HorizontalAlignment="Stretch" Style="{StaticResource AccentButtonStyle}" IsEnabled="{x:Bind AreSimilarPagesSelectedForCrop, Mode=OneWay}" Click="ButtonCropSimilarPagesConfirm_Click" />
+                                        <Button x:Name="ButtonCropSimilarPagesCancel" Grid.Column="1" Content="{x:Bind strings:Resources.Cancel}" HorizontalAlignment="Stretch" Click="ButtonCropSimilarPagesCancel_Click" />
+                                    </Grid>
+                                </Grid>
+                            </Flyout>
+                        </FlyoutBase.AttachedFlyout>
+                    </Grid>
+                </Frame>
+
+                <!-- Draw controls -->
+                <Frame x:Name="FrameDrawToolbar" Margin="4" IsEnabled="{x:Bind ViewModel.ProjectService.IsProcessRunning, Mode=OneWay, Converter={StaticResource NegativeBoolConverter}}" x:Load="{x:Bind IsDrawing, Mode=OneWay}">
+                    <Grid x:Name="GridDrawToolbar" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,4,0">
+                            <InkToolbar x:Name="InkToolbarDraw" Loaded="InkToolbarDraw_Loaded" />
+                            <ToggleButton x:Name="ToggleButtonDrawWithTouch" VerticalAlignment="Stretch" Style="{StaticResource MutedToggleButtonStyle}" Foreground="{ThemeResource TextFillColorPrimaryBrush}" ToolTipService.ToolTip="{x:Bind strings:Resources.DrawWithTouch}" AutomationProperties.Name="{x:Bind strings:Resources.DrawWithTouch}" IsChecked="{x:Bind IsDrawingWithTouchEnabled, Mode=TwoWay}">
+                                <FontIcon Glyph="&#xED5F;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                            </ToggleButton>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                            <AppBarSeparator />
+                            <SplitButton x:Name="SplitButtonSaveDraw" VerticalAlignment="Stretch" Style="{StaticResource AccentSplitButtonStyle}" IsEnabled="{x:Bind HasInk, Mode=OneWay}" Click="SplitButtonSaveDraw_Click">
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <FontIcon Grid.Column="0" Glyph="&#xE8FB;" FontSize="16" VerticalAlignment="Center" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind strings:Resources.Apply}" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" />
+                                </Grid>
+
+                                <SplitButton.Flyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem x:Name="MenuFlyoutItemSaveDraw" Text="{x:Bind strings:Resources.Apply}" FontWeight="SemiBold" Click="MenuFlyoutItemSaveDraw_Click">
+                                            <MenuFlyoutItem.Icon>
+                                                <FontIcon Glyph="&#xE8FB;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutItem x:Name="MenuFlyoutItemSaveDrawAsCopy" Text="{x:Bind strings:Resources.ApplyAsCopy}" Click="MenuFlyoutItemSaveDrawAsCopy_Click" />
+                                    </MenuFlyout>
+                                </SplitButton.Flyout>
+                            </SplitButton>
+                            <Button x:Name="ButtonDiscardDraw" Style="{StaticResource EditorButtonStyle}" ToolTipService.ToolTip="{x:Bind strings:Resources.Cancel}" Click="ButtonDiscardDraw_Click">
+                                <FontIcon Glyph="&#xE711;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+
+                                <Button.KeyboardAccelerators>
+                                    <KeyboardAccelerator Key="Escape" />
+                                </Button.KeyboardAccelerators>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Frame>
+            </Grid>
+
+            <Grid x:Name="GridToolbarZoom" Grid.Column="0" Grid.ColumnSpan="3" HorizontalAlignment="Right" VerticalAlignment="Center" Background="Transparent" IsHitTestVisible="True" Visibility="{x:Bind IsCropping, Mode=OneWay, Converter={StaticResource NegativeBoolVisibilityConverter}}" PointerEntered="GridToolbarZoom_PointerEntered" PointerExited="GridToolbarZoom_PointerExited">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Border x:Name="BorderToolbarZoomBackground" Grid.Column="0" Grid.ColumnSpan="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}" CornerRadius="8" animations:Implicit.ShowAnimations="{StaticResource ToolbarBackgroundShowAnimations}" x:Load="{x:Bind IsToolbarBackgroundVisible, Mode=OneWay}" />
+                <StackPanel x:Name="StackPanelZoomControls" Grid.Column="0" Orientation="Horizontal" x:Load="{x:Bind IsHoveringZoomControls, Mode=OneWay}">
+                        <Button x:Name="ButtonPageZoomFactorIncrease" Padding="8" VerticalAlignment="Stretch" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource MutedButtonStyle}" CornerRadius="8,0,0,8" IsEnabled="{x:Bind CanZoomIn, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind strings:Resources.ZoomInToolTip}" Click="ButtonPageZoomFactorIncrease_Click">
+                            <FontIcon Glyph="&#xE710;" FontSize="12" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                        </Button>
+                        <Button x:Name="ButtonPageZoomFactorDecrease" Padding="8" VerticalAlignment="Stretch" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource MutedButtonStyle}" CornerRadius="0" IsEnabled="{x:Bind CanZoomOut, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind strings:Resources.ZoomOutToolTip}" Click="ButtonPageZoomFactorDecrease_Click">
+                            <FontIcon Glyph="&#xE738;" FontSize="12" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                        </Button>
+                    </StackPanel>
+                <Button x:Name="ButtonPageZoomFactor" Grid.Column="1" Padding="8" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource MutedButtonStyle}" CornerRadius="0,8,8,0" ToolTipService.ToolTip="{x:Bind strings:Resources.ResetZoomToolTip}" Click="ButtonPageZoomFactor_Click">
+                    <TextBlock Text="{x:Bind FriendlyPageZoomFactor, Mode=OneWay}" MaxLines="1" Typography.NumeralAlignment="Tabular" Style="{StaticResource CaptionTextBlockStyle}" />
+                </Button>
+            </Grid>
+        </Grid>
+    </Grid>
+</Page>

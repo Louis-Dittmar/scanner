@@ -1,0 +1,295 @@
+<Page
+    x:Class="Scanner.Views.ScanActionsView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Scanner.Views"
+    xmlns:animatedvisuals="using:Microsoft.UI.Xaml.Controls.AnimatedVisuals"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModels="using:Scanner.ViewModels"
+    xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
+    xmlns:core="using:Microsoft.Xaml.Interactivity"
+    xmlns:converters="using:Scanner.Views.Converters"
+    xmlns:animations="using:CommunityToolkit.WinUI.Animations"
+    xmlns:ui="using:CommunityToolkit.WinUI"
+    xmlns:customcontrols="using:Scanner.Controls"
+    xmlns:strings="using:Scanner.Resources.Strings"
+    xmlns:tests="using:Scanner.Tests"
+    mc:Ignorable="d"
+    Loaded="Page_Loaded"
+    Unloaded="Page_Unloaded">
+
+    <Page.DataContext>
+        <viewModels:ScanActionsViewModel x:Name="ViewModel"/>
+    </Page.DataContext>
+
+    <interactivity:Interaction.Behaviors>
+        <core:EventTriggerBehavior EventName="Loading">
+            <core:InvokeCommandAction Command="{x:Bind ViewModel.ViewLoadingCommand}" CommandParameter="{x:Bind DispatcherQueue}" />
+        </core:EventTriggerBehavior>
+        <core:EventTriggerBehavior EventName="Unloaded">
+            <core:InvokeCommandAction Command="{x:Bind ViewModel.DisposeCommand}"/>
+        </core:EventTriggerBehavior>
+    </interactivity:Interaction.Behaviors>
+
+
+    <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - -  RESOURCES  - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ms-appx:///StylesDictionary.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            
+            <!-- Storyboards -->
+            <Storyboard x:Name="StoryboardScanAnimation" RepeatBehavior="Forever">
+                <DoubleAnimation
+                    x:Name="DoubleAnimationScanAnimation"
+                    Storyboard.TargetName="BorderScanAnimation"
+                    Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                    From="-348"
+                    To="348" 
+                    Duration="0:0:2.5">
+                    <DoubleAnimation.EasingFunction>
+                        <QuadraticEase EasingMode="EaseInOut" />
+                    </DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+            </Storyboard>
+
+            <!-- XAML Converters -->
+            <converters:NegativeBoolConverter x:Key="NegativeBoolConverter" />
+            <converters:NegativeBoolVisibilityConverter x:Key="NegativeBoolVisibilityConverter" />
+            <converters:NotNullBoolConverter x:Key="NotNullBoolConverter" />
+            <converters:NullBoolConverter x:Key="NullBoolConverter" />
+            <converters:BoolOnAccentForegroundConverter x:Key="BoolOnAccentForegroundConverter" />
+        </ResourceDictionary>
+    </Page.Resources>
+
+
+    <!-- - - - - - - - - - - - - - - - - - - -  - - - - - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - -  PAGE CONTENT  - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - - - - -  - - - - - - - - - - - - - - - - - - - - -->
+    <Grid x:Name="GridRoot" ui:UIElementExtensions.ClipToBounds="True" SizeChanged="GridRoot_SizeChanged">
+        <Border x:Name="BorderTeachingTipTarget" HorizontalAlignment="Left" Width="56" />
+
+        <Border x:Name="BorderScanAnimationBackground" Background="{ThemeResource SystemAccentColor}" ui:VisualExtensions.Opacity="0.0" x:Load="{x:Bind ViewModel.IsScanning, Mode=OneWay}">
+            <animations:Implicit.ShowAnimations>
+                <animations:OpacityAnimation To="0.05" Duration="0:0:0.75" />
+            </animations:Implicit.ShowAnimations>
+
+            <animations:Implicit.HideAnimations>
+                <animations:OpacityAnimation To="0.0" Duration="0:0:0.75" />
+            </animations:Implicit.HideAnimations>
+        </Border>
+        <Border x:Name="BorderScanAnimation" x:Load="{x:Bind ViewModel.IsScanning, Mode=OneWay}" Loaded="BorderScanAnimation_Loaded">
+            <Border.RenderTransform>
+                <TranslateTransform X="-2000" />
+            </Border.RenderTransform>
+            
+            <Border.Background>
+                <LinearGradientBrush Opacity="0.15">
+                    <LinearGradientBrush.GradientStops>
+                        <GradientStop Offset="0" Color="{ThemeResource SolidBackgroundFillColorTransparent}" />
+                        <GradientStop Offset="0.3" Color="{ThemeResource SystemAccentColorDark1}" />
+                        <GradientStop Offset="0.5" Color="{ThemeResource SystemAccentColor}" />
+                        <GradientStop Offset="0.7" Color="{ThemeResource SystemAccentColorDark1}" />
+                        <GradientStop Offset="1" Color="{ThemeResource SolidBackgroundFillColorTransparent}" />
+                    </LinearGradientBrush.GradientStops>
+                </LinearGradientBrush>
+            </Border.Background>
+        </Border>
+
+        <Grid x:Name="GridContent" Margin="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button x:Name="ButtonTemplates" Grid.Column="0" Width="48" Height="48" Margin="0,0,8,0" VerticalAlignment="Center" Style="{StaticResource MutedButtonStyle}" IsEnabled="{x:Bind ViewModel.IsScanning, Mode=OneWay, Converter={StaticResource NegativeBoolConverter}}" ToolTipService.ToolTip="{x:Bind strings:Resources.Templates}" x:Load="{x:Bind IsTemplatesButtonVisible, Mode=OneWay}" Loading="ButtonAnimated_Loading" Click="ButtonTemplates_Click">
+                <animations:Implicit.ShowAnimations>
+                    <animations:ImplicitAnimationSet>
+                        <animations:OpacityAnimation Duration="{x:Bind AnimationDuration, Mode=OneWay}" From="0.0" To="1.0" EasingMode="EaseInOut"/>
+                        <animations:TranslationAnimation Duration="{x:Bind AnimationDuration, Mode=OneWay}" From="0,64" To="0,0" EasingMode="EaseInOut"/>
+                    </animations:ImplicitAnimationSet>
+                </animations:Implicit.ShowAnimations>
+
+                <animations:Implicit.HideAnimations>
+                    <animations:ImplicitAnimationSet>
+                        <animations:OpacityAnimation Duration="{x:Bind AnimationDuration, Mode=OneWay}" To="0.0" EasingMode="EaseInOut" />
+                        <animations:TranslationAnimation Duration="{x:Bind AnimationDuration, Mode=OneWay}" To="0,64" EasingMode="EaseInOut" />
+                    </animations:ImplicitAnimationSet>
+                </animations:Implicit.HideAnimations>
+
+                <FontIcon Glyph="&#xE8F1;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+            </Button>
+
+            <!-- Scan options -->
+            <Button x:Name="ButtonScanOptions" Grid.Column="1" Padding="8,0,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Left" VerticalContentAlignment="Center" Style="{StaticResource MutedButtonStyle}" x:Load="{x:Bind AreScanOptionsVisible, Mode=OneWay}" Click="ButtonScanOptions_Click" Loaded="ButtonScanOptions_Loaded" Unloaded="ButtonScanOptions_Unloaded">
+                <animations:Implicit.ShowAnimations>
+                    <animations:OpacityAnimation Duration="{x:Bind AnimationDuration, Mode=OneWay}" From="0.0" To="1.0" EasingMode="EaseInOut"/>
+                    <animations:TranslationAnimation Duration="{x:Bind AnimationDuration, Mode=OneWay}" From="0,-64" To="0,0" EasingMode="EaseInOut"/>
+                </animations:Implicit.ShowAnimations>
+
+                <animations:Implicit.HideAnimations>
+                    <animations:OpacityAnimation Duration="{x:Bind AnimationDuration, Mode=OneWay}" To="0.0" EasingMode="EaseInOut" />
+                    <animations:TranslationAnimation Duration="{x:Bind AnimationDuration, Mode=OneWay}" To="0,-64" EasingMode="EaseInOut" />
+                </animations:Implicit.HideAnimations>
+
+                <Grid>
+                    <customcontrols:ScanOptionsPresenter x:Name="ScanOptionsPresenter" ScanOptions="{x:Bind ViewModel.ScanOptions, Mode=OneWay}" x:Load="{x:Bind ViewModel.ScanOptions.Scanner, Mode=OneWay, Converter={StaticResource NotNullBoolConverter}}" />
+                    <TextBlock x:Name="TextBlockScanOptionsNoScanner" Text="{x:Bind strings:Resources.SelectScanner}" Style="{StaticResource CaptionTextBlockStyle}" FontWeight="SemiBold" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" x:Load="{x:Bind ViewModel.ScanOptions.Scanner, Mode=OneWay, Converter={StaticResource NullBoolConverter}}" />
+                </Grid>
+
+                <Button.ContextFlyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem x:Name="MenuFlyoutItemTemplates" Text="{x:Bind strings:Resources.Templates}" Click="MenuFlyoutItemTemplates_Click">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE8F1;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </MenuFlyout>
+                </Button.ContextFlyout>
+            </Button>
+
+            <!-- Right buttons -->
+            <Button x:Name="ButtonPreview" Grid.Column="2" Margin="8,0,0,0" Width="48" HorizontalAlignment="Right" VerticalAlignment="Stretch" IsEnabled="{x:Bind ViewModel.CanPreviewScan, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind strings:Resources.Preview}" x:Load="{x:Bind IsPreviewButtonVisible, Mode=OneWay}" Command="{x:Bind ViewModel.ShowPreviewDialogCommand}" Loading="ButtonAnimated_Loading">
+                <animations:Implicit.ShowAnimations>
+                    <animations:ImplicitAnimationSet>
+                        <animations:OpacityAnimation Duration="{x:Bind AnimationDuration, Mode=OneWay}" From="0.0" To="1.0" EasingMode="EaseInOut"/>
+                        <animations:TranslationAnimation Duration="{x:Bind AnimationDuration, Mode=OneWay}" From="0,64" To="0,0" EasingMode="EaseInOut"/>
+                    </animations:ImplicitAnimationSet>
+                </animations:Implicit.ShowAnimations>
+
+                <animations:Implicit.HideAnimations>
+                    <animations:ImplicitAnimationSet>
+                        <animations:OpacityAnimation Duration="{x:Bind AnimationDuration, Mode=OneWay}" To="0.0" EasingMode="EaseInOut" />
+                        <animations:TranslationAnimation Duration="{x:Bind AnimationDuration, Mode=OneWay}" To="0,64" EasingMode="EaseInOut" />
+                    </animations:ImplicitAnimationSet>
+                </animations:Implicit.HideAnimations>
+
+                <FontIcon Glyph="&#xE773;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+            </Button>
+            <Button x:Name="ButtonCancel" Grid.Column="3" Margin="8,0,0,0" VerticalAlignment="Stretch" MinWidth="164" MaxWidth="200" Foreground="{ThemeResource AccentTextFillColorSecondaryBrush}" ui:VisualExtensions.Opacity="0.0" ToolTipService.ToolTip="{x:Bind strings:Resources.CancelScanToolTip}" Command="{x:Bind ViewModel.CancelScanCommand}" x:Load="{x:Bind ViewModel.IsScanning, Mode=OneWay}" PointerEntered="ButtonCancel_PointerEntered" PointerExited="ButtonCancel_PointerExited">
+                <animations:Implicit.ShowAnimations>
+                    <animations:OpacityAnimation Duration="0:0:0.2" Delay="0:0:0.2" To="1.0" />
+                </animations:Implicit.ShowAnimations>
+                
+                <StackPanel Orientation="Vertical" Spacing="4" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Bind ViewModel.ProjectService.FriendlyCurrentScanState, Mode=OneWay}" MaxLines="1" HorizontalAlignment="Center" FontWeight="SemiBold" Foreground="{ThemeResource AccentTextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" />
+                    <TextBlock Text="{x:Bind strings:Resources.Cancel}" MaxLines="1" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" />
+               </StackPanel>
+            </Button>
+            <SplitButton x:Name="SplitButtonScan" Grid.Column="3" AutomationProperties.AutomationId="{x:Bind tests:ScanActions.ScanButtonId}" Margin="8,0,0,0" HorizontalContentAlignment="Left" VerticalAlignment="Stretch" Padding="8,0,16,0" MinWidth="120" Style="{ThemeResource AccentSplitButtonStyle}" IsEnabled="{x:Bind ViewModel.CanScan, Mode=OneWay}" x:Load="{x:Bind ViewModel.IsScanning, Mode=OneWay, Converter={StaticResource NegativeBoolConverter}}" Command="{x:Bind ViewModel.ScanCommand}" CommandParameter="{x:Bind ViewModel.AddToProject, Mode=OneWay}">
+                <animations:Implicit.HideAnimations>
+                    <animations:OpacityAnimation Duration="0:0:0.2" To="0.0" />
+                </animations:Implicit.HideAnimations>
+
+                <Grid ColumnSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="1*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button x:Name="ButtonScanMode" Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" CornerRadius="3" Margin="-2,0,4,0" Padding="8" Style="{StaticResource ButtonOnAccentStyle}" VerticalAlignment="Center" IsEnabled="{x:Bind ViewModel.CanScanModeBeSwitched, Mode=OneWay}" Click="ButtonScanMode_Click">
+                        <Grid>
+                            <FontIcon x:Name="FontIconScanModeAdd" Glyph="&#xE710;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" Foreground="{x:Bind ViewModel.CanScan, Mode=OneWay, Converter={StaticResource BoolOnAccentForegroundConverter}}" ToolTipService.ToolTip="{x:Bind strings:Resources.ScanActionAddToProject}" x:Load="{x:Bind ViewModel.AddToProject, Mode=OneWay}">
+                                <FontIcon.Transitions>
+                                    <TransitionCollection>
+                                        <EntranceThemeTransition FromVerticalOffset="4" />
+                                    </TransitionCollection>
+                                </FontIcon.Transitions>
+                            </FontIcon>
+                            <FontIcon x:Name="FontIconScanModeNew" Glyph="&#xE8A5;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" Foreground="{x:Bind ViewModel.CanScan, Mode=OneWay, Converter={StaticResource BoolOnAccentForegroundConverter}}" ToolTipService.ToolTip="{x:Bind strings:Resources.ScanActionStartNewProject}" x:Load="{x:Bind ViewModel.AddToProject, Mode=OneWay, Converter={StaticResource NegativeBoolConverter}}">
+                                <FontIcon.Transitions>
+                                    <TransitionCollection>
+                                        <EntranceThemeTransition FromVerticalOffset="4" />
+                                    </TransitionCollection>
+                                </FontIcon.Transitions>
+                            </FontIcon>
+                        </Grid>
+                    </Button>
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{x:Bind strings:Resources.StartScan}" Style="{StaticResource BaseTextBlockStyle}" />
+                    <TextBlock x:Name="TextBlockScanModeAdd" Grid.Row="1" Grid.Column="1" Text="{x:Bind strings:Resources.ScanActionAddToProjectShort}" Opacity="0.6" Style="{StaticResource CaptionTextBlockStyle}" x:Load="{x:Bind ViewModel.AddToProject, Mode=OneWay}">
+                        <TextBlock.Transitions>
+                            <TransitionCollection>
+                                <EntranceThemeTransition FromVerticalOffset="4" />
+                            </TransitionCollection>
+                        </TextBlock.Transitions>
+                    </TextBlock>
+                    <TextBlock x:Name="TextBlockScanModeNew" Grid.Row="1" Grid.Column="1" Text="{x:Bind strings:Resources.ScanActionStartNewProjectShort}" Opacity="0.6" Style="{StaticResource CaptionTextBlockStyle}" x:Load="{x:Bind ViewModel.AddToProject, Mode=OneWay, Converter={StaticResource NegativeBoolConverter}}">
+                        <TextBlock.Transitions>
+                            <TransitionCollection>
+                                <EntranceThemeTransition FromVerticalOffset="4" />
+                            </TransitionCollection>
+                        </TextBlock.Transitions>
+                    </TextBlock>
+                </Grid>
+
+                <SplitButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="F5" />
+                </SplitButton.KeyboardAccelerators>
+
+                <SplitButton.Flyout>
+                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                        <MenuFlyoutItem x:Name="MenuFlyoutItemAddToProject" Text="{x:Bind strings:Resources.ScanActionAddToProject}" IsEnabled="{x:Bind ViewModel.CanAddToProject, Mode=OneWay}" Command="{x:Bind ViewModel.ScanCommand}" Loading="MenuFlyoutItemAddToProject_Loading">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE710;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                            </MenuFlyoutItem.Icon>
+
+                            <MenuFlyoutItem.KeyboardAccelerators>
+                                <KeyboardAccelerator Modifiers="Shift" Key="F5" IsEnabled="False" />
+                            </MenuFlyoutItem.KeyboardAccelerators>
+
+                            <MenuFlyoutItem.CommandParameter>
+                                <x:Boolean>True</x:Boolean>
+                            </MenuFlyoutItem.CommandParameter>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem x:Name="MenuFlyoutItemNewProject" Text="{x:Bind strings:Resources.ScanActionStartNewProject}" Command="{x:Bind ViewModel.ScanCommand}" Loading="MenuFlyoutItemNewProject_Loading">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE8A5;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                            </MenuFlyoutItem.Icon>
+
+                            <MenuFlyoutItem.KeyboardAccelerators>
+                                <KeyboardAccelerator Modifiers="Control" Key="F5" IsEnabled="False" />
+                            </MenuFlyoutItem.KeyboardAccelerators>
+
+                            <MenuFlyoutItem.CommandParameter>
+                                <x:Boolean>False</x:Boolean>
+                            </MenuFlyoutItem.CommandParameter>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem Text="{x:Bind strings:Resources.ScanMergeEntryPoint}" IsEnabled="{x:Bind ViewModel.CanScanAndMerge, Mode=OneWay}" Command="{x:Bind ViewModel.ShowScanMergeDialogCommand}">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xEA3C;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem Text="{x:Bind strings:Resources.Preview}" IsEnabled="{x:Bind ViewModel.CanPreviewScan, Mode=OneWay}">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE773;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="{x:Bind strings:Resources.Settings}" Command="{x:Bind ViewModel.ShowSettingsCommand}">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE713;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </MenuFlyout>
+                </SplitButton.Flyout>
+            </SplitButton>
+        </Grid>
+
+        <TeachingTip x:Name="TeachingTipScanOptions" Title="{x:Bind strings:Resources.ScanOptionsButtonTutorialHeading}" Subtitle="{x:Bind strings:Resources.ScanOptionsButtonTutorialBody}" IsOpen="False" PreferredPlacement="TopRight" PlacementMargin="0,-4,0,0" Closing="TeachingTipScanOptions_Closing">
+            <TeachingTip.IconSource>
+                <FontIconSource Glyph="&#xE8FE;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+            </TeachingTip.IconSource>
+        </TeachingTip>
+    </Grid>
+</Page>

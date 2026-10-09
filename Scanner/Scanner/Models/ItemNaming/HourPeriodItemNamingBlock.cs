@@ -1,0 +1,85 @@
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using Scanner.Models.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Globalization;
+using Windows.Devices.Scanners;
+using static Scanner.Helpers.Helpers;
+
+namespace Scanner.Models.ItemNaming;
+
+public class HourPeriodItemNamingBlock : ObservableObject, IItemNamingBlock
+{
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DECLARATIONS /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    public string Glyph => "\uE121";
+    public string Name => "HOURPERIOD";
+
+    public string DisplayName
+    {
+        get => GetLocalized(Resources.Strings.ResourcesExtension.KeyEnum.FileNamingBlockHourPeriod);
+    }
+
+    private bool _AllCaps;
+    public bool AllCaps
+    {
+        get => _AllCaps;
+        set => SetProperty(ref _AllCaps, value);
+    }
+
+    public bool IsValid
+    {
+        get => true;
+    }
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // CONSTRUCTORS / FACTORIES /////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    public HourPeriodItemNamingBlock()
+    {
+        
+    }
+
+    public HourPeriodItemNamingBlock(string serialized)
+    {
+        string[] parts = serialized.TrimStart('*').Split('|', StringSplitOptions.RemoveEmptyEntries);
+        AllCaps = bool.Parse(parts[1]);
+    }
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // METHODS //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    public string ToString(ScanOptions scanOptions)
+    {
+        string result;
+        
+        DateTime currentTime = scanOptions.ScanTime;
+        result = currentTime.ToString("tt").ToUpper();
+
+        if (string.IsNullOrWhiteSpace(result))
+        {
+            // fallback to American English for languages that don't have a 24-hour system
+            result = currentTime.ToString("tt", CultureInfo.GetCultureInfoByIetfLanguageTag("en-us").DateTimeFormat);
+        }
+        
+        if (AllCaps)
+        {
+            result = result.ToUpper();
+        }
+        else
+        {
+            result = result.ToLower();
+        }
+
+        return result;
+    }
+
+    public string GetSerialized(bool obfuscated)
+    {
+        return $"*{Name}|{AllCaps}";
+    }
+}
