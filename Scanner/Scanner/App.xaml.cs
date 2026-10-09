@@ -116,7 +116,9 @@ public partial class App : Application
     {
         // get the activation args
         var appArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
-        ReadForkLaunchArguments(args.Arguments);
+        ReadForkLaunchArguments(args.Arguments,
+            (appArgs.Data as Windows.ApplicationModel.Activation.ILaunchActivatedEventArgs)?.Arguments,
+            Environment.CommandLine);
 
         // get or register the main instance
         var mainInstance = AppInstance.FindOrRegisterForKey("main");

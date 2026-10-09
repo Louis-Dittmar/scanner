@@ -45,10 +45,12 @@ public partial class App
     // METHODS //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /// <summary>
-    /// Evaluates the launch arguments, before any service or window is created.
+    /// Evaluates the launch arguments, before any service or window is created. Depending on how a packaged app is
+    /// activated they arrive in a different place, so the first source containing them is used.
     /// </summary>
-    public static void ReadForkLaunchArguments(string? arguments)
+    public static void ReadForkLaunchArguments(params string?[] sources)
     {
+        string? arguments = sources.FirstOrDefault(x => x?.Contains(UiTestArgument, StringComparison.Ordinal) == true);
         if (arguments?.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(UiTestArgument) == true)
             IsUiTestMode = true;
 
@@ -61,6 +63,9 @@ public partial class App
     {
         try
         {
+            if (IsUiTestMode)
+                LogService?.Log.Information("UI test mode, scan file given: {HasScanFile}", UiTestScanFile != null);
+
             Ioc.Default.GetRequiredService<IDocumentPipelineService>().Initialize(MainDispatcherQueue);
 
             WeakReferenceMessenger.Default.Register<ShowDocumentWindowMessage>(forkMessageRecipient, (r, m) =>

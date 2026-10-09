@@ -58,6 +58,15 @@ public sealed class GeneralTests
         automation = new UIA3Automation();
         Window mainWindow = application.GetMainWindow(automation, startTimeout)
             ?? throw new AssertFailedException("The main window didn't appear");
+
+        // should be skipped in UI test mode; confirm it if a first-run dialog shows up nevertheless
+        AutomationElement? confirm = Retry.WhileNull(() => FindInApp("PrimaryButton"), TimeSpan.FromSeconds(4), TimeSpan.FromMilliseconds(250), throwOnTimeout: false, ignoreException: true).Result;
+        if (confirm != null)
+        {
+            TestContext.WriteLine($"Confirming unexpected dialog: {confirm.Name}");
+            confirm.AsButton().Invoke();
+            Thread.Sleep(1000);
+        }
         return mainWindow;
     }
 
