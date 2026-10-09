@@ -34,7 +34,7 @@ public partial class DocumentProcessingViewModel : ObservableObject, IDisposable
     private readonly ILogService? LogService = Ioc.Default.GetService<ILogService>();
     #endregion
 
-    private readonly DispatcherQueue? dispatcherQueue = DispatcherQueue.GetForCurrentThread();
+    private readonly Microsoft.UI.Dispatching.DispatcherQueue? dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
     private DocumentJob? observedJob;
 
     public DocumentJob? Job => PipelineService.CurrentJob;
