@@ -181,15 +181,13 @@ public sealed class GeneralTests
             TimeSpan.FromMinutes(1), "the document window");
         SaveScreenshot("document-window");
 
-        AutomationElement outputInfo = WaitFor(() =>
-        {
-            AutomationElement? infoBar = documentWindow.FindFirstDescendant(cf.ByAutomationId(Scanner.Tests.DocumentWindow.OutputPathId));
-            return infoBar?.FindAllDescendants(cf.ByControlType(ControlType.Text))
-                .FirstOrDefault(t => t.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase));
-        }, pipelineTimeout, "the saved PDF");
+        // the success bar carries the full path of the saved PDF as its name (and in its message text)
+        string pdfPath = WaitFor(() => documentWindow.FindAllDescendants()
+            .Select(e => e.Properties.Name.ValueOrDefault ?? "")
+            .FirstOrDefault(name => name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) && Path.IsPathRooted(name)),
+            pipelineTimeout, "the saved PDF");
         SaveScreenshot("done");
 
-        string pdfPath = outputInfo.Name;
         TestContext.WriteLine($"PDF: {pdfPath}");
         Assert.IsTrue(File.Exists(pdfPath), $"{pdfPath} doesn't exist");
         byte[] header = File.ReadAllBytes(pdfPath)[..5];

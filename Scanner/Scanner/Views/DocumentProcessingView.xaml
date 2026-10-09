@@ -291,7 +291,8 @@
                      Message="{x:Bind strings:Resources.DocumentOptionsChanged}" />
             <InfoBar Severity="Success" IsClosable="False" IsOpen="{x:Bind ViewModel.Job.IsDone, Mode=OneWay}"
                      Title="{x:Bind strings:Resources.DocumentDoneHeading}" Message="{x:Bind ViewModel.Job.OutputPdfPath, Mode=OneWay}"
-                     AutomationProperties.AutomationId="{x:Bind tests:DocumentWindow.OutputPathId}" />
+                     AutomationProperties.AutomationId="{x:Bind tests:DocumentWindow.OutputPathId}"
+                     AutomationProperties.Name="{x:Bind ViewModel.Job.OutputPdfPath, Mode=OneWay}" />
         </StackPanel>
 
         <!-- Options and actions -->
