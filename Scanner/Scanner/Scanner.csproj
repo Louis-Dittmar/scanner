@@ -14,9 +14,11 @@
 		<Nullable>enable</Nullable>
 		<DefaultLanguage>en</DefaultLanguage>
 		<Copyright>Copyright © 2026 Simon Knuth</Copyright>
-    	<PackageCertificateThumbprint>E0B5241AC9CBDA08A18376F9994B10A0DFD2D05C</PackageCertificateThumbprint>
+		<!-- Fork: the upstream signing certificate isn't available here. Debug deployment from Visual Studio works
+		     without signing; to create an installable MSIX, create a certificate with subject "CN=Louis Dittmar"
+		     (Package.appxmanifest > Packaging > Choose Certificate) and enable signing again. -->
 		<EnableXamlSourceGeneration>true</EnableXamlSourceGeneration>
-		<AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
+		<AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>
 		<GenerateAppInstallerFile>False</GenerateAppInstallerFile>
 		<AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
 		<AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
