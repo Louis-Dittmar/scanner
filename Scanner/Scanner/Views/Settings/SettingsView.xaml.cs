@@ -81,6 +81,10 @@ public sealed partial class SettingsView : Page
                 if (FrameContent.Content is not SettingsViewPaperless)
                     Navigate(typeof(SettingsViewPaperless), transitionInfo);
                 break;
+            case SettingsPageType.AiOcr:
+                if (FrameContent.Content is not SettingsViewAiOcr)
+                    Navigate(typeof(SettingsViewAiOcr), transitionInfo);
+                break;
         }
     }
 

@@ -94,6 +94,8 @@ public partial class App : Application
             .AddSingleton<IKnownScannersService, KnownScannersService>()
             .AddSingleton<ITemplatesService, TemplatesService>()
             .AddSingleton<IPaperlessService, PaperlessService>()
+            .AddSingleton<IAiOcrService, AiOcrService>()
+            .AddSingleton<IAiOcrExportService, AiOcrExportService>()
             .BuildServiceProvider());
 
         WeakReferenceMessenger.Default.Register<MainWindowClosingMessage>(this, (r, m) =>
@@ -169,6 +171,7 @@ public partial class App : Application
 
                     await Ioc.Default.GetRequiredService<IAppDataService>().InitializeAsync();
                     Ioc.Default.GetRequiredService<ISaveLocationService>();
+                    InitializeForkFeatures();
 
                     DateTime processStartTime = Process.GetCurrentProcess().StartTime;
                     MainDispatcherQueue.RunOnThread(DispatcherQueuePriority.High, () =>

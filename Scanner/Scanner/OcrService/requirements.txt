@@ -1,0 +1,16 @@
+# Dependencies of server.py and of the baidu/Unlimited-OCR model code (trust_remote_code).
+# PyTorch itself comes from requirements-torch.txt, installed beforehand.
+# Versions as used by the Unlimited-OCR community demo.
+transformers==4.57.1
+accelerate>=1.10,<2
+safetensors>=0.5
+huggingface_hub>=0.34,<1.0
+Pillow==12.1.1
+einops==0.8.2
+addict==2.4.0
+easydict==1.13
+matplotlib==3.10.8
+psutil==7.2.2
+requests>=2.31
+tqdm>=4.66
+numpy>=1.26

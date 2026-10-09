@@ -2418,4 +2418,156 @@ Rest assured that your scans are never included in these reports.</value>
     <value>Open in Paperless</value>
     <comment>Link to the uploaded document.</comment>
   </data>
+  <data name="SettingsAiOcrHeading" xml:space="preserve">
+    <value>AI text recognition</value>
+    <comment>Heading of the AI text recognition settings page.</comment>
+  </data>
+  <data name="SettingsAiOcrDescription" xml:space="preserve">
+    <value>Recognizes text, headings and tables with the local AI model Unlimited-OCR on your graphics card. After saving, Scanner additionally creates the selected outputs next to the original.</value>
+    <comment>Description of the AI text recognition settings page.</comment>
+  </data>
+  <data name="AiOcrStatusHeading" xml:space="preserve">
+    <value>Status</value>
+    <comment>Header of the status card.</comment>
+  </data>
+  <data name="AiOcrStateUnsupported" xml:space="preserve">
+    <value>AI text recognition is only available on x64 devices.</value>
+    <comment>Status if the device isn't supported.</comment>
+  </data>
+  <data name="AiOcrStateNotInstalled" xml:space="preserve">
+    <value>Not installed</value>
+    <comment>Status before installation.</comment>
+  </data>
+  <data name="AiOcrStateStopped" xml:space="preserve">
+    <value>Installed, not running</value>
+    <comment>Status when installed but stopped.</comment>
+  </data>
+  <data name="AiOcrStateStarting" xml:space="preserve">
+    <value>Starting…</value>
+    <comment>Status while the service starts.</comment>
+  </data>
+  <data name="AiOcrStateDownloadingModel" xml:space="preserve">
+    <value>Downloading the model (about 7 GB on first use)…</value>
+    <comment>Status while the model is downloaded.</comment>
+  </data>
+  <data name="AiOcrStateLoadingModel" xml:space="preserve">
+    <value>Loading the model onto the graphics card…</value>
+    <comment>Status while the model is loaded.</comment>
+  </data>
+  <data name="AiOcrStateReady" xml:space="preserve">
+    <value>Ready</value>
+    <comment>Status when the model is ready, followed by GPU details.</comment>
+  </data>
+  <data name="AiOcrStartFailed" xml:space="preserve">
+    <value>AI text recognition couldn't be started</value>
+    <comment>Status if starting failed.</comment>
+  </data>
+  <data name="AiOcrInstall" xml:space="preserve">
+    <value>Install</value>
+    <comment>Button that installs the AI text recognition.</comment>
+  </data>
+  <data name="AiOcrInstallDownloadingTools" xml:space="preserve">
+    <value>Downloading installer tools…</value>
+    <comment>Installation step.</comment>
+  </data>
+  <data name="AiOcrInstallPython" xml:space="preserve">
+    <value>Setting up Python…</value>
+    <comment>Installation step.</comment>
+  </data>
+  <data name="AiOcrInstallPyTorch" xml:space="preserve">
+    <value>Installing PyTorch with CUDA (about 3 GB)…</value>
+    <comment>Installation step.</comment>
+  </data>
+  <data name="AiOcrInstallPackages" xml:space="preserve">
+    <value>Installing remaining packages…</value>
+    <comment>Installation step.</comment>
+  </data>
+  <data name="AiOcrInstallFailed" xml:space="preserve">
+    <value>Installation failed</value>
+    <comment>Status if the installation failed.</comment>
+  </data>
+  <data name="AiOcrStart" xml:space="preserve">
+    <value>Start</value>
+    <comment>Button that starts the service.</comment>
+  </data>
+  <data name="AiOcrStop" xml:space="preserve">
+    <value>Stop</value>
+    <comment>Button that stops the service.</comment>
+  </data>
+  <data name="AiOcrEnableHeading" xml:space="preserve">
+    <value>Use AI text recognition</value>
+    <comment>Header of the enable switch.</comment>
+  </data>
+  <data name="AiOcrEnableBody" xml:space="preserve">
+    <value>Starts with the app and creates the AI outputs after saving.</value>
+    <comment>Description of the enable switch.</comment>
+  </data>
+  <data name="AiOcrOutputsHeading" xml:space="preserve">
+    <value>Outputs</value>
+    <comment>Header of the output options.</comment>
+  </data>
+  <data name="AiOcrOutputsBody" xml:space="preserve">
+    <value>Created in addition to the original file, in the same folder.</value>
+    <comment>Description of the output options.</comment>
+  </data>
+  <data name="AiOcrOutputMarkdownHeading" xml:space="preserve">
+    <value>Markdown file (.md)</value>
+    <comment>Output option.</comment>
+  </data>
+  <data name="AiOcrOutputMarkdownBody" xml:space="preserve">
+    <value>The recognized text including headings and tables.</value>
+    <comment>Description of the Markdown output.</comment>
+  </data>
+  <data name="AiOcrOutputPdfHeading" xml:space="preserve">
+    <value>Searchable PDF (KI)</value>
+    <comment>Output option.</comment>
+  </data>
+  <data name="AiOcrOutputPdfBody" xml:space="preserve">
+    <value>The scanned pages with the AI text as an invisible, searchable layer.</value>
+    <comment>Description of the PDF output.</comment>
+  </data>
+  <data name="AiOcrLingerHeading" xml:space="preserve">
+    <value>Keep running after closing (minutes)</value>
+    <comment>Header of the linger setting.</comment>
+  </data>
+  <data name="AiOcrLingerBody" xml:space="preserve">
+    <value>Keeps the model loaded for a while, so reopening the app is fast. Takes effect the next time the service starts.</value>
+    <comment>Description of the linger setting.</comment>
+  </data>
+  <data name="AiOcrStorageHeading" xml:space="preserve">
+    <value>Storage location</value>
+    <comment>Header of the storage card.</comment>
+  </data>
+  <data name="AiOcrOpenFolder" xml:space="preserve">
+    <value>Open folder</value>
+    <comment>Button that opens the install folder.</comment>
+  </data>
+  <data name="AiOcrUninstall" xml:space="preserve">
+    <value>Uninstall</value>
+    <comment>Button that removes Python, packages and model.</comment>
+  </data>
+  <data name="AiOcrRequirementsHeading" xml:space="preserve">
+    <value>Requirements</value>
+    <comment>Header of the requirements card.</comment>
+  </data>
+  <data name="AiOcrRequirementsBody" xml:space="preserve">
+    <value>An NVIDIA graphics card with CUDA support (e.g. RTX 2080 Ti or newer) and about 10 GB of free disk space for Python, PyTorch and the model.</value>
+    <comment>Description of the requirements.</comment>
+  </data>
+  <data name="AiOcrExportDoneHeading" xml:space="preserve">
+    <value>AI text recognition finished</value>
+    <comment>Notification after the AI outputs were created.</comment>
+  </data>
+  <data name="AiOcrExportDoneBody" xml:space="preserve">
+    <value>The AI outputs have been saved next to the original.</value>
+    <comment>Notification after the AI outputs were created.</comment>
+  </data>
+  <data name="AiOcrExportFailedHeading" xml:space="preserve">
+    <value>AI text recognition failed</value>
+    <comment>Notification if creating the AI outputs failed.</comment>
+  </data>
+  <data name="AiOcrExportFailedBody" xml:space="preserve">
+    <value>The original was saved, but the AI outputs couldn't be created.</value>
+    <comment>Notification if creating the AI outputs failed.</comment>
+  </data>
 </root>

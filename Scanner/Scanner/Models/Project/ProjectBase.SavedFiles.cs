@@ -5,11 +5,17 @@ using Scanner.Models.Paperless;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Windows.Storage;
 using Windows.Storage.Streams;
 
 namespace Scanner.Models;
+
+/// <summary>
+/// A saved target file of a project, read into memory so it can be processed without holding project locks.
+/// </summary>
+public record SavedProjectFile(string FileName, byte[] Content, string ContentType, StorageFolder? Folder);
 
 public abstract partial class ProjectBase
 {
@@ -23,8 +29,21 @@ public abstract partial class ProjectBase
     /// <returns>The files, or <see langword="null"/> if the project isn't saved.</returns>
     public async Task<List<PaperlessUploadFile>?> TryReadSavedFilesForUploadAsync()
     {
+        List<SavedProjectFile>? files = await TryReadSavedFilesAsync(notifyIfNotSaved: true, waitForSave: true);
+        return files?.Select(x => new PaperlessUploadFile(x.FileName, x.Content, x.ContentType)).ToList();
+    }
+
+    /// <summary>
+    /// Reads the saved target file(s) of this project into memory.
+    /// </summary>
+    /// <param name="notifyIfNotSaved">Show the "not saved" notification if there is nothing up-to-date to read.</param>
+    /// <param name="waitForSave">Show the "save in progress" dialog and wait for a running save; background callers
+    /// pass <see langword="false"/> and simply wait for the save lock instead.</param>
+    /// <returns>The files, or <see langword="null"/> if the project isn't saved.</returns>
+    public async Task<List<SavedProjectFile>?> TryReadSavedFilesAsync(bool notifyIfNotSaved, bool waitForSave)
+    {
         // wait for save processes to end
-        if (LatestSaveProcess != null && !LatestSaveProcess.Task.IsCompleted)
+        if (waitForSave && LatestSaveProcess != null && !LatestSaveProcess.Task.IsCompleted)
         {
             await Messenger.Send(new ShowSaveInProgressDialogMessage()).Response;
         }
@@ -33,23 +52,26 @@ public abstract partial class ProjectBase
 
         try
         {
-            List<StorageFile>? files = IsSaved ? GetSavedTargetFiles() : null;
+            List<(StorageFile File, StorageFolder? Folder)>? files = IsSaved ? GetSavedTargetFiles() : null;
             if (files == null || files.Count == 0)
             {
-                Messenger.Send(new ShowInAppNotificationMessage(new CommunityToolkit.WinUI.Behaviors.Notification
+                if (notifyIfNotSaved)
                 {
-                    Title = Resources.Strings.Resources.ProjectNotSavedHeading,
-                    Message = Resources.Strings.Resources.ProjectNotSavedBody,
-                    Severity = InfoBarSeverity.Error
-                }));
+                    Messenger.Send(new ShowInAppNotificationMessage(new CommunityToolkit.WinUI.Behaviors.Notification
+                    {
+                        Title = Resources.Strings.Resources.ProjectNotSavedHeading,
+                        Message = Resources.Strings.Resources.ProjectNotSavedBody,
+                        Severity = InfoBarSeverity.Error
+                    }));
+                }
                 return null;
             }
 
             // target files are opened with AllowOnlyReaders while the project is open, so reading is fine
-            List<PaperlessUploadFile> result = [];
-            foreach (StorageFile file in files)
+            List<SavedProjectFile> result = [];
+            foreach ((StorageFile file, StorageFolder? folder) in files)
             {
-                result.Add(new PaperlessUploadFile(file.Name, await ReadAllBytesAsync(file), GetContentType(file)));
+                result.Add(new SavedProjectFile(file.Name, await ReadAllBytesAsync(file), GetContentType(file), folder));
             }
             return result;
         }
@@ -61,9 +83,9 @@ public abstract partial class ProjectBase
     }
 
     /// <summary>
-    /// The files this project has been saved to, only called while holding the project locks.
+    /// The files this project has been saved to and the folders they're in, only called while holding the project locks.
     /// </summary>
-    protected abstract List<StorageFile>? GetSavedTargetFiles();
+    protected abstract List<(StorageFile File, StorageFolder? Folder)>? GetSavedTargetFiles();
 
     private static async Task<byte[]> ReadAllBytesAsync(StorageFile file)
     {

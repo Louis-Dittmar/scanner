@@ -55,6 +55,7 @@ public partial class SettingsViewModel : ObservableRecipient, IDisposable
         new SettingsPageEntry(SettingsPageType.General, "\uE713", Helpers.Helpers.GetLocalized(KeyEnum.SettingsGeneralHeading)),
         new SettingsPageEntry(SettingsPageType.Personalization, "\uE771", Helpers.Helpers.GetLocalized(KeyEnum.SettingsPersonalizationHeading)),
         new SettingsPageEntry(SettingsPageType.Privacy, "\uEA18", Helpers.Helpers.GetLocalized(KeyEnum.SettingsPrivacyHeading)),
+        new SettingsPageEntry(SettingsPageType.AiOcr, "\uE9D9", Helpers.Helpers.GetLocalized(KeyEnum.SettingsAiOcrHeading)),
         new SettingsPageEntry(SettingsPageType.Paperless, "\uE898", Helpers.Helpers.GetLocalized(KeyEnum.SettingsPaperlessHeading)),
     ];
 
@@ -354,7 +355,8 @@ public enum SettingsPageType
     Translations,
     Feedback,
     About,
-    Paperless
+    Paperless,
+    AiOcr
 }
 
 public record SettingsViewModelIntent(SettingsPageType DisplayedPage);

@@ -112,6 +112,10 @@
 		<Content Include="Resources\Licenses\WinUIEx.txt" />
 		<Content Include="Resources\Tesseract Training Data\tessdata\eng.traineddata" />
 		<Content Include="Resources\Tesseract Training Data\tessdata\osd.traineddata" />
+		<!-- Fork: AI text recognition service, run with a private Python set up by AiOcrService -->
+		<Content Include="OcrService\server.py" CopyToOutputDirectory="PreserveNewest" />
+		<Content Include="OcrService\requirements.txt" CopyToOutputDirectory="PreserveNewest" />
+		<Content Include="OcrService\requirements-torch.txt" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 	<ItemGroup>

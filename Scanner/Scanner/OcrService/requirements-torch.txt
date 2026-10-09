@@ -1,0 +1,6 @@
+# PyTorch with CUDA 12.8, installed in a separate step because PyPI only offers CPU builds for Windows.
+# CUDA 12.8 covers both Turing (RTX 20) and Blackwell (RTX 50) GPUs.
+# Versions as used by the Unlimited-OCR community demo.
+--index-url https://download.pytorch.org/whl/cu128
+torch==2.10.0
+torchvision==0.25.0

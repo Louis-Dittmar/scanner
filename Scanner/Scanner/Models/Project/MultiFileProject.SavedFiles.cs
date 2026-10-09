@@ -9,15 +9,15 @@ public partial class MultiFileProject
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // METHODS //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    protected override List<StorageFile>? GetSavedTargetFiles()
+    protected override List<(StorageFile File, StorageFolder? Folder)>? GetSavedTargetFiles()
     {
-        List<StorageFile> files = [];
+        List<(StorageFile File, StorageFolder? Folder)> files = [];
         foreach (IProjectPage page in Pages)
         {
             if (page is not ImagePage imagePage || imagePage.TargetFile == null)
                 return null;    // at least one page has no saved file yet
 
-            files.Add(imagePage.TargetFile.File);
+            files.Add((imagePage.TargetFile.File, imagePage.TargetFolder));
         }
         return files;
     }

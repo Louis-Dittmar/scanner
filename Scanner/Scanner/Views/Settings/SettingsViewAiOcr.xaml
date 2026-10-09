@@ -1,0 +1,140 @@
+<settings:SettingsPage
+    x:Class="Scanner.Views.Settings.SettingsViewAiOcr"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:settings="using:Scanner.Views.Settings"
+    xmlns:strings="using:Scanner.Resources.Strings"
+    mc:Ignorable="d">
+
+
+    <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - -  RESOURCES  - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+    <settings:SettingsPage.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ms-appx:///StylesDictionary.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </settings:SettingsPage.Resources>
+
+
+    <!-- - - - - - - - - - - - - - - - - - - -  - - - - - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - -  PAGE CONTENT  - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - - - - -  - - - - - - - - - - - - - - - - - - - - -->
+    <Grid x:Name="GridRoot">
+        <ScrollViewer HorizontalScrollMode="Disabled" VerticalScrollMode="Auto" VerticalScrollBarVisibility="Auto">
+            <StackPanel Orientation="Vertical" Spacing="4" Padding="32">
+                <StackPanel.ChildrenTransitions>
+                    <TransitionCollection>
+                        <RepositionThemeTransition IsStaggeringEnabled="False" />
+                    </TransitionCollection>
+                </StackPanel.ChildrenTransitions>
+
+                <TextBlock Text="{x:Bind strings:Resources.SettingsAiOcrHeading}" Margin="0,0,0,8" FontSize="24" Style="{StaticResource BaseTextBlockStyle}" />
+                <TextBlock Text="{x:Bind strings:Resources.SettingsAiOcrDescription}" Margin="0,0,0,16" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                <InfoBar IsClosable="False" Severity="Warning"
+                         IsOpen="{x:Bind ViewModel.IsUnsupported}"
+                         Message="{x:Bind strings:Resources.AiOcrStateUnsupported}" />
+
+                <!-- Status and installation -->
+                <controls:SettingsCard Header="{x:Bind strings:Resources.AiOcrStatusHeading}" Description="{x:Bind ViewModel.StatusText, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE9D9;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                    </controls:SettingsCard.HeaderIcon>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ProgressRing Width="20" Height="20" VerticalAlignment="Center"
+                                      IsActive="{x:Bind ViewModel.IsWorking, Mode=OneWay}"
+                                      Visibility="{x:Bind ViewModel.IsWorking, Mode=OneWay}" />
+                        <Button Style="{StaticResource AccentButtonStyle}" Content="{x:Bind strings:Resources.AiOcrInstall}"
+                                Visibility="{x:Bind ViewModel.CanInstall, Mode=OneWay}"
+                                Command="{x:Bind ViewModel.InstallAsyncCommand}" />
+                        <Button Content="{x:Bind strings:Resources.Cancel}"
+                                Visibility="{x:Bind ViewModel.IsInstalling, Mode=OneWay}"
+                                Command="{x:Bind ViewModel.CancelInstallCommand}" />
+                        <Button Content="{x:Bind strings:Resources.AiOcrStart}"
+                                Visibility="{x:Bind ViewModel.CanStart, Mode=OneWay}"
+                                Command="{x:Bind ViewModel.StartAsyncCommand}" />
+                        <Button Content="{x:Bind strings:Resources.AiOcrStop}"
+                                Visibility="{x:Bind ViewModel.CanStop, Mode=OneWay}"
+                                Command="{x:Bind ViewModel.StopAsyncCommand}" />
+                    </StackPanel>
+                </controls:SettingsCard>
+
+                <ProgressBar Margin="0,4,0,0"
+                             Visibility="{x:Bind ViewModel.IsInstalling, Mode=OneWay}"
+                             IsIndeterminate="{x:Bind ViewModel.IsProgressIndeterminate, Mode=OneWay}"
+                             Value="{x:Bind ViewModel.ProgressValue, Mode=OneWay}" />
+
+                <InfoBar IsClosable="False" Severity="Error" Margin="0,4,0,0"
+                         IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                         Title="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                         Message="{x:Bind ViewModel.ErrorDetails, Mode=OneWay}" />
+
+                <!-- Enable -->
+                <controls:SettingsCard Margin="0,16,0,0" Header="{x:Bind strings:Resources.AiOcrEnableHeading}" Description="{x:Bind strings:Resources.AiOcrEnableBody}"
+                                       IsEnabled="{x:Bind ViewModel.IsInstalled, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE8FE;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                    </controls:SettingsCard.HeaderIcon>
+
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.IsEnabled, Mode=TwoWay}" />
+                </controls:SettingsCard>
+
+                <!-- Outputs -->
+                <controls:SettingsExpander Header="{x:Bind strings:Resources.AiOcrOutputsHeading}" Description="{x:Bind strings:Resources.AiOcrOutputsBody}" IsExpanded="True"
+                                           IsEnabled="{x:Bind ViewModel.IsInstalled, Mode=OneWay}">
+                    <controls:SettingsExpander.HeaderIcon>
+                        <FontIcon Glyph="&#xE8A5;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                    </controls:SettingsExpander.HeaderIcon>
+
+                    <controls:SettingsExpander.Items>
+                        <controls:SettingsCard Header="{x:Bind strings:Resources.AiOcrOutputMarkdownHeading}" Description="{x:Bind strings:Resources.AiOcrOutputMarkdownBody}">
+                            <ToggleSwitch IsOn="{x:Bind ViewModel.OutputMarkdown, Mode=TwoWay}" />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard Header="{x:Bind strings:Resources.AiOcrOutputPdfHeading}" Description="{x:Bind strings:Resources.AiOcrOutputPdfBody}">
+                            <ToggleSwitch IsOn="{x:Bind ViewModel.OutputPdf, Mode=TwoWay}" />
+                        </controls:SettingsCard>
+                    </controls:SettingsExpander.Items>
+                </controls:SettingsExpander>
+
+                <!-- Lifecycle -->
+                <controls:SettingsCard Header="{x:Bind strings:Resources.AiOcrLingerHeading}" Description="{x:Bind strings:Resources.AiOcrLingerBody}"
+                                       IsEnabled="{x:Bind ViewModel.IsInstalled, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE916;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                    </controls:SettingsCard.HeaderIcon>
+
+                    <NumberBox Width="120" Minimum="0" Maximum="240" SmallChange="1" LargeChange="5" SpinButtonPlacementMode="Inline"
+                               Value="{x:Bind ViewModel.LingerMinutes, Mode=TwoWay}" />
+                </controls:SettingsCard>
+
+                <!-- Storage -->
+                <controls:SettingsCard Header="{x:Bind strings:Resources.AiOcrStorageHeading}" Description="{x:Bind ViewModel.InstallFolderPath}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xEDA2;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                    </controls:SettingsCard.HeaderIcon>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="{x:Bind strings:Resources.AiOcrOpenFolder}" Command="{x:Bind ViewModel.OpenFolderAsyncCommand}" />
+                        <Button Content="{x:Bind strings:Resources.AiOcrUninstall}"
+                                IsEnabled="{x:Bind ViewModel.CanUninstall, Mode=OneWay}"
+                                Command="{x:Bind ViewModel.UninstallAsyncCommand}" />
+                    </StackPanel>
+                </controls:SettingsCard>
+
+                <!-- Requirements -->
+                <controls:SettingsCard Margin="0,16,0,0" Header="{x:Bind strings:Resources.AiOcrRequirementsHeading}" Description="{x:Bind strings:Resources.AiOcrRequirementsBody}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE946;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                    </controls:SettingsCard.HeaderIcon>
+                </controls:SettingsCard>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</settings:SettingsPage>
