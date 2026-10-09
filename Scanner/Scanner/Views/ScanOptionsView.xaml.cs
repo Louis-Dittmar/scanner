@@ -879,6 +879,10 @@ public sealed partial class ScanOptionsView : Page
     {
 #if DEBUG
         FlyoutBase.ShowAttachedFlyout(ComboBoxScanners);
+#else
+        // fork: the UI tests scan with the debug scanner in Release builds, too
+        if (App.IsUiTestMode)
+            FlyoutBase.ShowAttachedFlyout(ComboBoxScanners);
 #endif
     }
 
