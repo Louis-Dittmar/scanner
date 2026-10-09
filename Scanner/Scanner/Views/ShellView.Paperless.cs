@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Scanner.Extensions;
 using Scanner.Messages;
 using Scanner.Views.Dialogs;
+using System;
 
 namespace Scanner.Views;
 
