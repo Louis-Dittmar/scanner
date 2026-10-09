@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Platform-independent document processing (white correction, document detection, parsing the output of the AI
+    text recognition, PDF creation). Free of WinUI/WinRT dependencies, so it is unit tested on every CI run and on
+    any OS (ScannerCoreTests), and stays AnyCPU next to the platform-specific app.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Scanner.Core</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PDFsharp" Version="6.2.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Liberation Sans (SIL OFL 1.1), metric-compatible with Arial; embedded so PDFs look the same on every machine -->
+    <EmbeddedResource Include="Fonts\LiberationSans-Regular.ttf" LogicalName="Scanner.Core.Fonts.LiberationSans-Regular.ttf" />
+    <EmbeddedResource Include="Fonts\LiberationSans-Bold.ttf" LogicalName="Scanner.Core.Fonts.LiberationSans-Bold.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ScannerCoreTests" />
+  </ItemGroup>
+
+</Project>
