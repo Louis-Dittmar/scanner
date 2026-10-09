@@ -10,6 +10,35 @@
 
 
 &nbsp;
+## Scanner Paperless (dieser Fork)
+
+Dieser Fork ergänzt Scanner um eine lokale KI-Dokumentverarbeitung:
+
+1. **Scannen** – wie gewohnt (oder ein vorhandenes Projekt über *Projektmenü › KI-Dokument erstellen*).
+2. **Weißkorrektur** – wird ein Dokument erkannt, wird das Blatt zugeschnitten und das Papier weiß gemacht
+   (Vergilbung, Schatten, Buchfalz); Text bleibt dunkel, Bilder bekommen nur einen sanften Weißabgleich.
+   Fotos ohne Dokument bleiben unverändert.
+3. **Texterkennung** mit [baidu/Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR) lokal auf der NVIDIA-Grafikkarte.
+4. **Dokumentfenster** – zeigt jeden Schritt, die Seite mit den erkannten Bereichen (Überschrift, Text, Tabelle, Bild …),
+   den erkannten Text und das fertige PDF.
+5. **Fertiges PDF** – vollständig markierbar: wahlweise *nachgebaut* (echter Text, Tabellen, Bilder aus dem Scan übernommen)
+   oder *Scan mit Textebene*. Gespeichert im Ausgabeordner (Standard: `Dokumente\Scanner Paperless`), optional
+   weiter an Paperless-ngx.
+
+Beim ersten Start fragt die App, ob die KI-Komponente (Python, PyTorch, Modell; rund 14 GB) eingerichtet werden soll –
+mit wählbarem Speicherort. Das Modell wird beim Start der App geladen und beim Schließen wieder entladen.
+Entfernen: *Einstellungen › KI-Texterkennung › Entfernen*; am Standardort verschwindet sie auch mit der App.
+
+**Installation:** In GitHub unter *Actions › CI* den neuesten Lauf öffnen, Artefakt `Scanner-Paperless-x64`
+herunterladen, entpacken und `Installieren.cmd` ausführen. Deinstallieren mit `Deinstallieren.cmd` oder über die
+Windows-Einstellungen.
+
+**Tests:** Die CI (`.github/workflows/ci.yml`) testet bei jedem Push die Bildverarbeitung/PDF-Erzeugung
+(`Scanner/ScannerCoreTests`), den Python-Dienst (`Scanner/Scanner/OcrService/tests`) und baut, signiert und
+installiert die WinUI-3-App auf einem Windows-Runner, wo FlaUI-UI-Tests den kompletten Ablauf Scan → PDF prüfen.
+
+
+&nbsp;
 ## Features
 <ul>
   <li>Support for all WIA-compatible scanners (that’s probably almost every regular consumer scanner in use today)</li>

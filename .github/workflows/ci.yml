@@ -217,7 +217,9 @@ jobs:
     - name: Run UI tests
       run: |
         New-Item -ItemType Directory -Force $env:Results_Dir | Out-Null
-        $exe = Get-ChildItem ScannerTests\bin\Release -Recurse -Filter ScannerTests.exe | Select-Object -First 1
+        # the job-wide Platform variable makes this bin\x64\Release
+        $exe = Get-ChildItem ScannerTests\bin -Recurse -Filter ScannerTests.exe | Where-Object FullName -like "*Release*" | Select-Object -First 1
+        if (-not $exe) { throw "ScannerTests.exe not found" }
         & $exe.FullName --results-directory $env:Results_Dir --report-trx --report-trx-filename ui-tests.trx
         if ($LASTEXITCODE -ne 0) { throw "UI tests failed with exit code $LASTEXITCODE" }
 
