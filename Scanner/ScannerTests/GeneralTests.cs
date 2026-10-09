@@ -177,7 +177,7 @@ public sealed class GeneralTests
 
         // the document window opens by itself and runs white correction, recognition and PDF creation
         Window documentWindow = WaitFor(() => GetAppWindows()
-            .FirstOrDefault(w => w.FindFirstDescendant(cf.ByAutomationId(Scanner.Tests.DocumentWindow.RootId)) != null)?.AsWindow(),
+            .FirstOrDefault(w => w.FindFirstDescendant(cf.ByAutomationId(Scanner.Tests.DocumentWindow.StatusTextId)) != null)?.AsWindow(),
             TimeSpan.FromMinutes(1), "the document window");
         SaveScreenshot("document-window");
 

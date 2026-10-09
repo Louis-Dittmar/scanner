@@ -14,6 +14,7 @@ public static class ScanActions
 
 public static class DocumentWindow
 {
+    /// <summary>On a layout panel, which UI automation doesn't expose; find the window by <see cref="StatusTextId"/>.</summary>
     public const string RootId = "DocumentWindowRoot";
     public const string StatusTextId = "DocumentStatusText";
     public const string OutputPathId = "DocumentOutputPath";
