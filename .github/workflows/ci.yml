@@ -220,7 +220,7 @@ jobs:
         # the job-wide Platform variable makes this bin\x64\Release
         $exe = Get-ChildItem ScannerTests\bin -Recurse -Filter ScannerTests.exe | Where-Object FullName -like "*Release*" | Select-Object -First 1
         if (-not $exe) { throw "ScannerTests.exe not found" }
-        & $exe.FullName --results-directory $env:Results_Dir --report-trx --report-trx-filename ui-tests.trx
+        & $exe.FullName --results-directory $env:Results_Dir --report-trx --report-trx-filename ui-tests.trx --output Detailed
         if ($LASTEXITCODE -ne 0) { throw "UI tests failed with exit code $LASTEXITCODE" }
 
     - name: Collect app logs
