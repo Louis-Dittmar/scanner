@@ -1,65 +1,69 @@
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Navigation;
+using Microsoft.UI.Xaml.Controls;
 using Scanner.Services.Interfaces;
 using Scanner.Services.Pipeline;
 using Scanner.ViewModels;
 using System;
 
-namespace Scanner.Views.Settings;
+namespace Scanner.Views.Dialogs;
 
-public sealed partial class SettingsViewAiOcr : SettingsPage
+public sealed partial class AiSetupDialogView : ContentDialog
 {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DECLARATIONS /////////////////////////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    public AiOcrSettingsViewModel ViewModel { get; } = new();
+    private readonly ILogService? LogService = Ioc.Default.GetService<ILogService>();
+
+    public AiSetupDialogViewModel ViewModel { get; } = new();
 
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // CONSTRUCTORS / FACTORIES /////////////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    public SettingsViewAiOcr()
+    public AiSetupDialogView()
     {
         this.InitializeComponent();
-        Ioc.Default.GetService<ILogService>()?.Log.Information("View loaded");
+        LogService?.Log.Information("Dialog loaded");
     }
 
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // METHODS //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    protected override void OnNavigatedFrom(NavigationEventArgs e)
-    {
-        base.OnNavigatedFrom(e);
-        ViewModel.Dispose();
-    }
-
-    private async void ButtonChangeOutputFolder_Click(object sender, RoutedEventArgs e)
-    {
-        string? folder = await PickFolderAsync();
-        if (folder != null)
-            ViewModel.SetOutputFolder(folder);
-    }
-
-    private async void ButtonChangeInstallLocation_Click(object sender, RoutedEventArgs e)
-    {
-        string? folder = await PickFolderAsync();
-        if (folder != null)
-            ViewModel.SetInstallLocation(folder);
-    }
-
-    private async System.Threading.Tasks.Task<string?> PickFolderAsync()
+    private void ContentDialog_PrimaryButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
         try
         {
-            Window? window = ((App)Application.Current).SettingsWindow;
-            return window == null ? null : await AiSetup.PickFolderAsync(window);
+            ViewModel.Install(DispatcherQueue);
         }
         catch (Exception exc)
         {
-            Ioc.Default.GetService<ILogService>()?.Log.Error(exc, "Failed to pick a folder");
-            return null;
+            LogService?.Log.Error(exc, "Failed to start the AI text recognition setup");
         }
+    }
+
+    private void ContentDialog_CloseButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+    {
+        ViewModel.Postpone();
+    }
+
+    private async void ButtonChangeLocation_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            string? folder = await AiSetup.PickFolderAsync(((App)Application.Current).MainWindow);
+            if (folder != null)
+                ViewModel.ChosenParentFolder = folder;
+        }
+        catch (Exception exc)
+        {
+            LogService?.Log.Error(exc, "Failed to pick a folder for the AI text recognition");
+        }
+    }
+
+    private void ButtonDefaultLocation_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.UseDefaultLocation();
     }
 }

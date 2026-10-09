@@ -1,0 +1,344 @@
+<Page
+    x:Class="Scanner.Views.DocumentProcessingView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModels="using:Scanner.ViewModels"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:customcontrols="using:Scanner.Controls"
+    xmlns:tests="using:Scanner.Tests"
+    xmlns:strings="using:Scanner.Resources.Strings"
+    mc:Ignorable="d"
+    Unloaded="Page_Unloaded">
+
+
+    <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - -  RESOURCES  - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ms-appx:///StylesDictionary.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- one step of the progress header -->
+            <DataTemplate x:Key="StepTemplate" x:DataType="viewModels:DocumentJobStep">
+                <StackPanel Orientation="Horizontal" Spacing="8" Opacity="{x:Bind Opacity, Mode=OneWay}">
+                    <Grid Width="28" Height="28">
+                        <Ellipse Fill="{ThemeResource AccentFillColorDefaultBrush}" Visibility="{x:Bind IsDone, Mode=OneWay}" />
+                        <Ellipse Fill="{ThemeResource SystemFillColorCriticalBrush}" Visibility="{x:Bind IsFailed, Mode=OneWay}" />
+                        <Ellipse Stroke="{ThemeResource AccentFillColorDefaultBrush}" StrokeThickness="2" Visibility="{x:Bind IsActive, Mode=OneWay}" />
+                        <Ellipse Stroke="{ThemeResource ControlStrongStrokeColorDefaultBrush}" StrokeThickness="1" />
+                        <FontIcon Glyph="{x:Bind StateGlyph, Mode=OneWay}" FontSize="13" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                        <ProgressRing Width="28" Height="28" IsActive="{x:Bind IsActive, Mode=OneWay}" Visibility="{x:Bind IsActive, Mode=OneWay}" />
+                    </Grid>
+                    <TextBlock Text="{x:Bind Title}" VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                </StackPanel>
+            </DataTemplate>
+
+            <Style x:Key="StepChevronStyle" TargetType="FontIcon">
+                <Setter Property="Glyph" Value="&#xE76C;" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Margin" Value="12,0,12,0" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorTertiaryBrush}" />
+                <Setter Property="FontFamily" Value="{StaticResource SymbolThemeFontFamily}" />
+            </Style>
+        </ResourceDictionary>
+    </Page.Resources>
+
+
+    <!-- - - - - - - - - - - - - - - - - - - -  - - - - - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - -  PAGE CONTENT  - - - - - - - - - - - - - - - - -->
+    <!-- - - - - - - - - - - - - - - - - - - -  - - - - - - - - - - - - - - - - - - - - -->
+    <Grid x:Name="GridRoot" AutomationProperties.AutomationId="{x:Bind tests:DocumentWindow.RootId}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="1*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Titlebar -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Padding="16,0,0,0" VerticalAlignment="Center">
+            <FontIcon Glyph="&#xE9D9;" FontSize="14" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+            <TextBlock Text="{x:Bind strings:Resources.DocumentWindowTitle}" Style="{StaticResource CaptionTextBlockStyle}" />
+            <TextBlock Text="{x:Bind ViewModel.Job.Title, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+
+        <!-- Steps and overall progress -->
+        <Grid Grid.Row="1" Padding="24,12,24,12" ColumnSpacing="24" Visibility="{x:Bind ViewModel.HasJob, Mode=OneWay}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="1*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <ScrollViewer Grid.Column="0" HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Hidden" VerticalScrollMode="Disabled">
+                <StackPanel Orientation="Horizontal">
+                    <ContentControl Content="{x:Bind ViewModel.Job.StepLoad, Mode=OneWay}" ContentTemplate="{StaticResource StepTemplate}" />
+                    <FontIcon Style="{StaticResource StepChevronStyle}" />
+                    <ContentControl Content="{x:Bind ViewModel.Job.StepWhite, Mode=OneWay}" ContentTemplate="{StaticResource StepTemplate}" />
+                    <FontIcon Style="{StaticResource StepChevronStyle}" />
+                    <ContentControl Content="{x:Bind ViewModel.Job.StepRecognize, Mode=OneWay}" ContentTemplate="{StaticResource StepTemplate}" />
+                    <FontIcon Style="{StaticResource StepChevronStyle}" />
+                    <ContentControl Content="{x:Bind ViewModel.Job.StepPdf, Mode=OneWay}" ContentTemplate="{StaticResource StepTemplate}" />
+                    <FontIcon Style="{StaticResource StepChevronStyle}" />
+                    <ContentControl Content="{x:Bind ViewModel.Job.StepSave, Mode=OneWay}" ContentTemplate="{StaticResource StepTemplate}" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <TextBlock Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"
+                       Text="{x:Bind ViewModel.Job.StatusText, Mode=OneWay}"
+                       AutomationProperties.AutomationId="{x:Bind tests:DocumentWindow.StatusTextId}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+            <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Margin="0,12,0,0"
+                         IsIndeterminate="{x:Bind ViewModel.Job.IsProgressIndeterminate, Mode=OneWay}"
+                         Value="{x:Bind ViewModel.Job.ProgressPercent, Mode=OneWay}"
+                         ShowError="{x:Bind ViewModel.Job.IsFailed, Mode=OneWay}"
+                         Visibility="{x:Bind ViewModel.Job.IsBusy, Mode=OneWay}" />
+        </Grid>
+
+        <!-- Main area -->
+        <Grid Grid.Row="2" Padding="16,0,16,0" ColumnSpacing="16" Visibility="{x:Bind ViewModel.HasJob, Mode=OneWay}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="420" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Page -->
+            <Grid Grid.Column="0" RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="1*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+                        <Button Command="{x:Bind ViewModel.PreviousPageCommand}" IsEnabled="{x:Bind ViewModel.CanGoBack, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind strings:Resources.DocumentPreviousPage}" Style="{StaticResource SubtleButtonStyle}">
+                            <FontIcon Glyph="&#xE76B;" FontSize="14" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                        </Button>
+                        <TextBlock Text="{x:Bind ViewModel.PageCounterText, Mode=OneWay}" VerticalAlignment="Center" MinWidth="90" TextAlignment="Center" />
+                        <Button Command="{x:Bind ViewModel.NextPageCommand}" IsEnabled="{x:Bind ViewModel.CanGoForward, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind strings:Resources.DocumentNextPage}" Style="{StaticResource SubtleButtonStyle}">
+                            <FontIcon Glyph="&#xE76C;" FontSize="14" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                        </Button>
+                    </StackPanel>
+
+                    <TextBlock Grid.Column="1" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Text="{x:Bind ViewModel.SelectedPage.DetectionText, Mode=OneWay}" />
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                        <ToggleButton IsChecked="{x:Bind ViewModel.ShowOriginal, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.SelectedPage.HasProcessedImage, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE8B9;" FontSize="14" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                <TextBlock Text="{x:Bind strings:Resources.DocumentShowOriginal}" />
+                            </StackPanel>
+                        </ToggleButton>
+                        <ToggleButton IsChecked="{x:Bind ViewModel.ShowRegions, Mode=TwoWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE8B3;" FontSize="14" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                <TextBlock Text="{x:Bind strings:Resources.DocumentShowRegions}" />
+                            </StackPanel>
+                        </ToggleButton>
+                    </StackPanel>
+                </Grid>
+
+                <Grid Grid.Row="1" Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="16">
+                    <customcontrols:AIProcessingBorder x:Name="AIProcessingBorderPage" BorderThickness="4" CornerRadius="8" Margin="-16" x:Load="{x:Bind ViewModel.SelectedPage.IsRecognizing, Mode=OneWay}" />
+
+                    <Viewbox Stretch="Uniform" StretchDirection="Both">
+                        <Grid Width="{x:Bind ViewModel.SelectedPage.DisplayWidth, Mode=OneWay}" Height="{x:Bind ViewModel.SelectedPage.DisplayHeight, Mode=OneWay}">
+                            <Image Source="{x:Bind ViewModel.SelectedPage.DisplayedImage, Mode=OneWay}" Stretch="Fill" />
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.SelectedPage.Regions, Mode=OneWay}" Visibility="{x:Bind ViewModel.ShowRegions, Mode=OneWay}" IsTabStop="False">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <Grid />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="viewModels:DocumentJobRegion">
+                                        <Grid HorizontalAlignment="Left" VerticalAlignment="Top" Margin="{x:Bind Position}" Width="{x:Bind Width}" Height="{x:Bind Height}"
+                                              ToolTipService.ToolTip="{x:Bind Preview}">
+                                            <Border Background="{x:Bind Fill}" BorderBrush="{x:Bind Stroke}" BorderThickness="{x:Bind StrokeThickness, Mode=OneWay}" />
+                                            <Border Background="{x:Bind Stroke}" HorizontalAlignment="Left" VerticalAlignment="Top" Padding="6,1,6,2" CornerRadius="0,0,4,0">
+                                                <TextBlock Text="{x:Bind KindText}" FontSize="14" Foreground="White" />
+                                            </Border>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                    </Viewbox>
+                </Grid>
+
+                <TextBlock Grid.Row="2" Text="{x:Bind ViewModel.SelectedPage.StepText, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+            </Grid>
+
+            <!-- Results -->
+            <Grid Grid.Column="1" RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="1*" />
+                </Grid.RowDefinitions>
+
+                <controls:Segmented Grid.Row="0" HorizontalAlignment="Stretch" SelectedIndex="{x:Bind ViewModel.SelectedTab, Mode=TwoWay}">
+                    <controls:SegmentedItem Content="{x:Bind strings:Resources.DocumentTabText}">
+                        <controls:SegmentedItem.Icon>
+                            <FontIcon Glyph="&#xE8D2;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                        </controls:SegmentedItem.Icon>
+                    </controls:SegmentedItem>
+                    <controls:SegmentedItem Content="{x:Bind strings:Resources.DocumentTabRegions}">
+                        <controls:SegmentedItem.Icon>
+                            <FontIcon Glyph="&#xE8B3;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                        </controls:SegmentedItem.Icon>
+                    </controls:SegmentedItem>
+                    <controls:SegmentedItem Content="{x:Bind strings:Resources.DocumentTabPdf}">
+                        <controls:SegmentedItem.Icon>
+                            <FontIcon Glyph="&#xEA90;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                        </controls:SegmentedItem.Icon>
+                    </controls:SegmentedItem>
+                </controls:Segmented>
+
+                <!-- Text -->
+                <Grid Grid.Row="1" RowSpacing="8" Visibility="{x:Bind ViewModel.IsTextTab, Mode=OneWay}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="1*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBox Grid.Row="0" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             FontFamily="Cascadia Mono, Consolas"
+                             PlaceholderText="{x:Bind strings:Resources.DocumentTextPlaceholder}"
+                             Text="{x:Bind ViewModel.SelectedPage.Markdown, Mode=OneWay}" />
+                    <Button Grid.Row="1" HorizontalAlignment="Right" Command="{x:Bind ViewModel.CopyTextCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE8C8;" FontSize="14" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                            <TextBlock Text="{x:Bind strings:Resources.DocumentCopyText}" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
+                <!-- Regions -->
+                <ListView Grid.Row="1" SelectionMode="Single" Visibility="{x:Bind ViewModel.IsRegionsTab, Mode=OneWay}"
+                          ItemsSource="{x:Bind ViewModel.SelectedPage.Regions, Mode=OneWay}"
+                          SelectedItem="{x:Bind ViewModel.SelectedRegionItem, Mode=TwoWay}">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:DocumentJobRegion">
+                            <Grid Padding="0,8,0,8" ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="1*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Width="28" Height="28" CornerRadius="14" Background="{x:Bind Stroke}" VerticalAlignment="Top">
+                                    <TextBlock Text="{x:Bind Number}" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" />
+                                </Border>
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}">
+                                        <Run Text="{x:Bind KindText}" />
+                                        <Run Text="{x:Bind Label}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" FontWeight="Normal" />
+                                    </TextBlock>
+                                    <TextBlock Text="{x:Bind Preview}" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+
+                <!-- PDF -->
+                <Grid Grid.Row="1" Visibility="{x:Bind ViewModel.IsPdfTab, Mode=OneWay}" CornerRadius="8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                    <TextBlock Text="{x:Bind strings:Resources.DocumentPdfPlaceholder}" TextWrapping="Wrap" Margin="16" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <WebView2 x:Name="PdfViewer" Visibility="{x:Bind ViewModel.Job.HasOutput, Mode=OneWay}" />
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <!-- No document yet -->
+        <StackPanel Grid.Row="1" Grid.RowSpan="2" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" MaxWidth="480"
+                    Visibility="{x:Bind ViewModel.HasNoJob, Mode=OneWay}">
+            <FontIcon Glyph="&#xE9D9;" FontSize="48" FontFamily="{StaticResource SymbolThemeFontFamily}" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+            <TextBlock Text="{x:Bind strings:Resources.DocumentEmptyHeading}" Style="{StaticResource SubtitleTextBlockStyle}" HorizontalAlignment="Center" />
+            <TextBlock Text="{x:Bind strings:Resources.DocumentEmptyBody}" TextWrapping="Wrap" TextAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Button HorizontalAlignment="Center" Style="{StaticResource AccentButtonStyle}" Content="{x:Bind strings:Resources.DocumentProcessCurrent}" Command="{x:Bind ViewModel.ProcessCurrentProjectCommand}" />
+        </StackPanel>
+
+        <!-- Messages -->
+        <StackPanel Grid.Row="3" Padding="16,8,16,0" Spacing="8">
+            <InfoBar Severity="Warning" IsClosable="False" IsOpen="{x:Bind ViewModel.Job.NeedsSetup, Mode=OneWay}"
+                     Title="{x:Bind strings:Resources.DocumentNeedsSetupHeading}" Message="{x:Bind strings:Resources.DocumentNeedsSetupBody}">
+                <InfoBar.ActionButton>
+                    <Button Content="{x:Bind strings:Resources.AiSetupStart}" Command="{x:Bind ViewModel.SetUpAiCommand}" Style="{StaticResource AccentButtonStyle}" />
+                </InfoBar.ActionButton>
+            </InfoBar>
+            <InfoBar Severity="Error" IsClosable="False" IsOpen="{x:Bind ViewModel.Job.IsFailed, Mode=OneWay}"
+                     Title="{x:Bind ViewModel.Job.StatusText, Mode=OneWay}" Message="{x:Bind ViewModel.Job.ErrorText, Mode=OneWay}">
+                <InfoBar.ActionButton>
+                    <Button Content="{x:Bind strings:Resources.DocumentOpenAiSettings}" Command="{x:Bind ViewModel.OpenAiSettingsCommand}" />
+                </InfoBar.ActionButton>
+            </InfoBar>
+            <InfoBar Severity="Informational" IsClosable="False" IsOpen="{x:Bind ViewModel.OptionsChanged, Mode=OneWay}"
+                     Message="{x:Bind strings:Resources.DocumentOptionsChanged}" />
+            <InfoBar Severity="Success" IsClosable="False" IsOpen="{x:Bind ViewModel.Job.IsDone, Mode=OneWay}"
+                     Title="{x:Bind strings:Resources.DocumentDoneHeading}" Message="{x:Bind ViewModel.Job.OutputPdfPath, Mode=OneWay}"
+                     AutomationProperties.AutomationId="{x:Bind tests:DocumentWindow.OutputPathId}" />
+        </StackPanel>
+
+        <!-- Options and actions -->
+        <Grid Grid.Row="4" Padding="16,12,16,16" ColumnSpacing="16" Visibility="{x:Bind ViewModel.HasJob, Mode=OneWay}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16">
+                <ToggleSwitch Header="{x:Bind strings:Resources.DocumentOptionWhite}" IsOn="{x:Bind ViewModel.WhiteCorrection, Mode=TwoWay}" MinWidth="0" />
+                <ToggleSwitch Header="{x:Bind strings:Resources.DocumentOptionCrop}" IsOn="{x:Bind ViewModel.CropToDocument, Mode=TwoWay}" MinWidth="0" />
+                <ComboBox Header="{x:Bind strings:Resources.DocumentOptionPdfMode}" SelectedIndex="{x:Bind ViewModel.PdfModeIndex, Mode=TwoWay}" MinWidth="220">
+                    <ComboBoxItem Content="{x:Bind strings:Resources.DocumentPdfModeReconstructed}" />
+                    <ComboBoxItem Content="{x:Bind strings:Resources.DocumentPdfModeScan}" />
+                </ComboBox>
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+                <Button Content="{x:Bind strings:Resources.Cancel}" Command="{x:Bind ViewModel.CancelCommand}" Visibility="{x:Bind ViewModel.Job.IsBusy, Mode=OneWay}" />
+                <Button Command="{x:Bind ViewModel.ReprocessCommand}" IsEnabled="{x:Bind ViewModel.Job.CanReprocess, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE72C;" FontSize="14" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                        <TextBlock Text="{x:Bind strings:Resources.DocumentReprocess}" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{x:Bind ViewModel.OpenFolderCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE838;" FontSize="14" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                        <TextBlock Text="{x:Bind strings:Resources.DocumentOpenFolder}" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{x:Bind ViewModel.SendToPaperlessCommand}" IsEnabled="{x:Bind ViewModel.Job.HasOutput, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE898;" FontSize="14" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                        <TextBlock Text="{x:Bind strings:Resources.SendToPaperless}" />
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource AccentButtonStyle}" Command="{x:Bind ViewModel.OpenPdfCommand}" IsEnabled="{x:Bind ViewModel.Job.HasOutput, Mode=OneWay}"
+                        AutomationProperties.AutomationId="{x:Bind tests:DocumentWindow.OpenPdfButtonId}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xEA90;" FontSize="14" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                        <TextBlock Text="{x:Bind strings:Resources.DocumentOpenPdf}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Page>

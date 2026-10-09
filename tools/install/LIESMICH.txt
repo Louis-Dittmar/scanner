@@ -1,0 +1,17 @@
+Scanner Paperless – Installation
+================================
+
+1. Diesen Ordner entpacken.
+2. "Installieren.cmd" doppelklicken. Windows fragt einmal nach Administratorrechten,
+   um das mitgelieferte Zertifikat (.cer) als vertrauenswürdig einzutragen.
+3. "Scanner Paperless" im Startmenü öffnen. Beim ersten Start fragt die App, ob die
+   lokale KI-Texterkennung eingerichtet werden soll (Python, PyTorch und das Modell
+   baidu/Unlimited-OCR, zusammen rund 14 GB; benötigt eine NVIDIA-Grafikkarte).
+
+Ablauf: Scannen -> Papier wird weiß gemacht (falls ein Dokument erkannt wird) ->
+Texterkennung -> vollständig markierbares PDF im Ausgabeordner
+(Standard: Dokumente\Scanner Paperless).
+
+Deinstallieren: "Deinstallieren.cmd" oder Windows-Einstellungen > Apps.
+Die KI-Komponente am Standardort wird dabei mit entfernt; jederzeit auch über
+Einstellungen > KI-Texterkennung > Entfernen.

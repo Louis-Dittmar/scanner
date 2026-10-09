@@ -38,7 +38,7 @@ internal partial class AiOcrService : ObservableObject, IAiOcrService
     private const string settingsContainerName = "AiOcr";
     private const string vaultResource = "Scanner.AiOcr";
     private const string vaultUserName = "ServiceToken";
-    private const int idleTimeoutSeconds = 60 * 60;
+    private const string customFolderName = "Scanner Paperless KI";
     private static readonly TimeSpan serviceStartTimeout = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan modelReadyTimeout = TimeSpan.FromMinutes(45);    // includes the 7 GB download
     private static readonly TimeSpan pageTimeout = TimeSpan.FromMinutes(10);
@@ -50,7 +50,13 @@ internal partial class AiOcrService : ObservableObject, IAiOcrService
     private Process? serviceProcess;
 
     #region Paths
-    public string InstallFolderPath { get; }
+    private readonly string defaultInstallFolderPath;
+
+    public string InstallFolderPath => CustomInstallParentFolder is { Length: > 0 } parent
+        ? Path.Combine(parent, customFolderName)
+        : defaultInstallFolderPath;
+
+    public bool IsDefaultInstallLocation => string.IsNullOrEmpty(CustomInstallParentFolder);
     private string UvExePath => Path.Combine(InstallFolderPath, "uv", "uv.exe");
     private string PythonFolderPath => Path.Combine(InstallFolderPath, "python");
     private string UvCacheFolderPath => Path.Combine(InstallFolderPath, "uv-cache");
@@ -90,23 +96,36 @@ internal partial class AiOcrService : ObservableObject, IAiOcrService
         }
     }
 
-    public bool OutputMarkdown
-    {
-        get => GetSetting(nameof(OutputMarkdown), true);
-        set => SetSetting(nameof(OutputMarkdown), value);
-    }
-
-    public bool OutputPdf
-    {
-        get => GetSetting(nameof(OutputPdf), true);
-        set => SetSetting(nameof(OutputPdf), value);
-    }
-
+    /// <summary>
+    /// How long the model stays loaded after the app has been closed. 0: it's unloaded together with the app.
+    /// </summary>
     public int LingerMinutes
     {
-        get => GetSetting(nameof(LingerMinutes), 5);
+        get => GetSetting(nameof(LingerMinutes), 0);
         set => SetSetting(nameof(LingerMinutes), Math.Clamp(value, 0, 240));
     }
+
+    /// <summary>
+    /// Unload the model after this many minutes without recognition while the app is open. 0: never, it stays
+    /// loaded as long as the app runs.
+    /// </summary>
+    public int IdleUnloadMinutes
+    {
+        get => GetSetting(nameof(IdleUnloadMinutes), 0);
+        set => SetSetting(nameof(IdleUnloadMinutes), Math.Clamp(value, 0, 24 * 60));
+    }
+
+    public bool SetupPromptDismissed
+    {
+        get => GetSetting(nameof(SetupPromptDismissed), false);
+        set => SetSetting(nameof(SetupPromptDismissed), value);
+    }
+
+    /// <summary>
+    /// A folder chosen by the user for Python, packages and the model (e.g. on a larger drive), or empty for the
+    /// default inside the app's data, which Windows removes together with the app.
+    /// </summary>
+    private string CustomInstallParentFolder => GetSetting(nameof(CustomInstallParentFolder), "");
     #endregion
 
 
@@ -116,7 +135,7 @@ internal partial class AiOcrService : ObservableObject, IAiOcrService
     public AiOcrService()
     {
         // must never throw
-        InstallFolderPath = Path.Combine(ApplicationData.Current.LocalCacheFolder.Path, "AiOcr");
+        defaultInstallFolderPath = Path.Combine(ApplicationData.Current.LocalCacheFolder.Path, "AiOcr");
         try
         {
             UpdateIdleState();
@@ -228,12 +247,43 @@ internal partial class AiOcrService : ObservableObject, IAiOcrService
         }
     }
 
+    public void SetInstallLocation(string? parentFolder)
+    {
+        if (IsInstalled || State == AiOcrState.Installing)
+            throw new InvalidOperationException("Remove the installation before moving it");
+
+        string value = string.IsNullOrWhiteSpace(parentFolder) ? "" : Path.GetFullPath(parentFolder);
+        if (SetSetting(nameof(CustomInstallParentFolder), value))
+        {
+            LogService?.Log.Information("AI text recognition location changed, default: {IsDefault}", IsDefaultInstallLocation);
+            OnPropertyChanged(nameof(InstallFolderPath));
+            OnPropertyChanged(nameof(IsDefaultInstallLocation));
+            UpdateIdleState();
+        }
+    }
+
+    /// <summary>
+    /// Only folders created by <see cref="InstallAsync"/> are ever deleted, never a folder the user picked itself.
+    /// </summary>
+    private bool IsSafeToDelete(string folder)
+    {
+        string full = Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar);
+        if (full == Path.GetFullPath(defaultInstallFolderPath).TrimEnd(Path.DirectorySeparatorChar))
+            return true;
+
+        return Path.GetFileName(full) == customFolderName
+            && (File.Exists(Path.Combine(full, "installed.json")) || Directory.Exists(Path.Combine(full, "uv")) || Directory.Exists(Path.Combine(full, "venv")));
+    }
+
     public async Task UninstallAsync()
     {
         await lifecycleSemaphore.WaitAsync();
         try
         {
             await StopServiceAsync();
+            if (Directory.Exists(InstallFolderPath) && !IsSafeToDelete(InstallFolderPath))
+                throw new AiOcrException("Refusing to delete a folder that wasn't created by the installation");
+
             if (Directory.Exists(InstallFolderPath))
             {
                 // the service may need a moment to release its files
@@ -429,6 +479,33 @@ internal partial class AiOcrService : ObservableObject, IAiOcrService
         }
     }
 
+    public void ShutdownForAppExit()
+    {
+        if (LingerMinutes > 0)
+            return;     // the service stops by itself once the linger time is over
+
+        try
+        {
+            // the app is closing: no await, but don't block for long either
+            Task.Run(async () =>
+            {
+                string token = GetOrCreateToken();
+                int? port = servicePort ?? TryReadStateFile()?.Port;
+                if (port is not int knownPort)
+                    return;
+                using HttpRequestMessage request = CreateRequest(HttpMethod.Post, knownPort, "/shutdown", token);
+                using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(2));
+                using HttpResponseMessage response = await httpClient.SendAsync(request, timeout.Token);
+            }).Wait(TimeSpan.FromSeconds(3));
+            LogService?.Log.Information("AI text recognition service asked to stop with the app");
+        }
+        catch (Exception exc)
+        {
+            // the service also notices that the app is gone and stops by itself
+            LogService?.Log.Warning(exc, "Failed to stop AI text recognition service on exit");
+        }
+    }
+
     /// <summary>
     /// Reuses a service that is still running (e.g. the app was reopened within the linger time) or starts a new one.
     /// Only called while holding <see cref="lifecycleSemaphore"/>.
@@ -470,7 +547,7 @@ internal partial class AiOcrService : ObservableObject, IAiOcrService
         startInfo.ArgumentList.Add("--linger");
         startInfo.ArgumentList.Add((LingerMinutes * 60).ToString());
         startInfo.ArgumentList.Add("--idle-timeout");
-        startInfo.ArgumentList.Add(idleTimeoutSeconds.ToString());
+        startInfo.ArgumentList.Add((IdleUnloadMinutes * 60).ToString());
         startInfo.ArgumentList.Add("--log-file");
         startInfo.ArgumentList.Add(LogFilePath);
 
@@ -585,12 +662,12 @@ internal partial class AiOcrService : ObservableObject, IAiOcrService
     #endregion
 
     #region Requests
-    public async Task<AiOcrPageResult> AnalyzeAsync(byte[] image, CancellationToken cancellationToken = default)
+    public async Task<string> AnalyzeRawAsync(byte[] image, CancellationToken cancellationToken = default)
     {
         if (servicePort is not int port)
             throw new AiOcrException("The service isn't running");
 
-        using HttpRequestMessage request = CreateRequest(HttpMethod.Post, port, "/ocr", GetOrCreateToken());
+        using HttpRequestMessage request = CreateRequest(HttpMethod.Post, port, "/ocr?mode=gundam", GetOrCreateToken());
         request.Content = new ByteArrayContent(image);
         request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
 
@@ -603,24 +680,7 @@ internal partial class AiOcrService : ObservableObject, IAiOcrService
             throw new AiOcrException($"HTTP {(int)response.StatusCode}: {body}");
 
         JsonNode root = JsonNode.Parse(body) ?? throw new AiOcrException("Empty response");
-        List<AiOcrRegion> regions = [];
-        foreach (JsonNode? region in root["regions"]?.AsArray() ?? new JsonArray())
-        {
-            JsonArray? box = region?["box"]?.AsArray();
-            if (region == null || box == null || box.Count != 4)
-                continue;
-
-            regions.Add(new AiOcrRegion(
-                region["label"]?.GetValue<string>() ?? "text",
-                box[0]!.GetValue<int>(), box[1]!.GetValue<int>(), box[2]!.GetValue<int>(), box[3]!.GetValue<int>(),
-                region["text"]?.GetValue<string>() ?? ""));
-        }
-
-        return new AiOcrPageResult(
-            root["width"]?.GetValue<int>() ?? 0,
-            root["height"]?.GetValue<int>() ?? 0,
-            root["markdown"]?.GetValue<string>() ?? "",
-            regions);
+        return root["raw"]?.GetValue<string>() ?? "";
     }
 
     private async Task<JsonNode?> TryGetHealthAsync(int port, string token, CancellationToken cancellationToken)

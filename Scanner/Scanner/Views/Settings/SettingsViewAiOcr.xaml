@@ -86,42 +86,87 @@
                     <ToggleSwitch IsOn="{x:Bind ViewModel.IsEnabled, Mode=TwoWay}" />
                 </controls:SettingsCard>
 
-                <!-- Outputs -->
-                <controls:SettingsExpander Header="{x:Bind strings:Resources.AiOcrOutputsHeading}" Description="{x:Bind strings:Resources.AiOcrOutputsBody}" IsExpanded="True"
-                                           IsEnabled="{x:Bind ViewModel.IsInstalled, Mode=OneWay}">
-                    <controls:SettingsExpander.HeaderIcon>
-                        <FontIcon Glyph="&#xE8A5;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
-                    </controls:SettingsExpander.HeaderIcon>
+                <!-- Document processing -->
+                <TextBlock Text="{x:Bind strings:Resources.AiOcrDocumentHeading}" Margin="0,24,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" />
 
+                <controls:SettingsCard Header="{x:Bind strings:Resources.AiOcrAutoProcessHeading}" Description="{x:Bind strings:Resources.AiOcrAutoProcessBody}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE945;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.AutoProcessAfterScan, Mode=TwoWay}" />
+                </controls:SettingsCard>
+
+                <controls:SettingsExpander Header="{x:Bind strings:Resources.AiOcrImageHeading}" Description="{x:Bind strings:Resources.AiOcrImageBody}" IsExpanded="True">
+                    <controls:SettingsExpander.HeaderIcon>
+                        <FontIcon Glyph="&#xE790;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                    </controls:SettingsExpander.HeaderIcon>
                     <controls:SettingsExpander.Items>
-                        <controls:SettingsCard Header="{x:Bind strings:Resources.AiOcrOutputMarkdownHeading}" Description="{x:Bind strings:Resources.AiOcrOutputMarkdownBody}">
-                            <ToggleSwitch IsOn="{x:Bind ViewModel.OutputMarkdown, Mode=TwoWay}" />
+                        <controls:SettingsCard Header="{x:Bind strings:Resources.DocumentOptionWhite}" Description="{x:Bind strings:Resources.AiOcrWhiteBody}">
+                            <ToggleSwitch IsOn="{x:Bind ViewModel.WhiteCorrection, Mode=TwoWay}" />
                         </controls:SettingsCard>
-                        <controls:SettingsCard Header="{x:Bind strings:Resources.AiOcrOutputPdfHeading}" Description="{x:Bind strings:Resources.AiOcrOutputPdfBody}">
-                            <ToggleSwitch IsOn="{x:Bind ViewModel.OutputPdf, Mode=TwoWay}" />
+                        <controls:SettingsCard Header="{x:Bind strings:Resources.DocumentOptionCrop}" Description="{x:Bind strings:Resources.AiOcrCropBody}">
+                            <ToggleSwitch IsOn="{x:Bind ViewModel.CropToDocument, Mode=TwoWay}" />
                         </controls:SettingsCard>
                     </controls:SettingsExpander.Items>
                 </controls:SettingsExpander>
 
-                <!-- Lifecycle -->
+                <controls:SettingsExpander Header="{x:Bind strings:Resources.AiOcrOutputsHeading}" Description="{x:Bind strings:Resources.AiOcrOutputsBody}" IsExpanded="True">
+                    <controls:SettingsExpander.HeaderIcon>
+                        <FontIcon Glyph="&#xEA90;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                    </controls:SettingsExpander.HeaderIcon>
+                    <controls:SettingsExpander.Items>
+                        <controls:SettingsCard Header="{x:Bind strings:Resources.DocumentOptionPdfMode}" Description="{x:Bind strings:Resources.AiOcrPdfModeBody}">
+                            <ComboBox SelectedIndex="{x:Bind ViewModel.PdfModeIndex, Mode=TwoWay}" MinWidth="240">
+                                <ComboBoxItem Content="{x:Bind strings:Resources.DocumentPdfModeReconstructed}" />
+                                <ComboBoxItem Content="{x:Bind strings:Resources.DocumentPdfModeScan}" />
+                            </ComboBox>
+                        </controls:SettingsCard>
+                        <controls:SettingsCard Header="{x:Bind strings:Resources.AiOcrOutputMarkdownHeading}" Description="{x:Bind strings:Resources.AiOcrOutputMarkdownBody}">
+                            <ToggleSwitch IsOn="{x:Bind ViewModel.WriteMarkdown, Mode=TwoWay}" />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard Header="{x:Bind strings:Resources.AiOcrOutputFolderHeading}" Description="{x:Bind ViewModel.OutputFolderPath, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="{x:Bind strings:Resources.AiOcrOpenFolder}" Command="{x:Bind ViewModel.OpenOutputFolderAsyncCommand}" />
+                                <Button Content="{x:Bind strings:Resources.AiSetupChangeLocation}" Click="ButtonChangeOutputFolder_Click" />
+                                <Button Content="{x:Bind strings:Resources.AiSetupDefaultLocation}" Command="{x:Bind ViewModel.ResetOutputFolderCommand}" Visibility="{x:Bind ViewModel.IsCustomOutputFolder, Mode=OneWay}" />
+                            </StackPanel>
+                        </controls:SettingsCard>
+                    </controls:SettingsExpander.Items>
+                </controls:SettingsExpander>
+
+                <!-- Model lifecycle -->
+                <TextBlock Text="{x:Bind strings:Resources.AiOcrModelHeading}" Margin="0,24,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" />
+
                 <controls:SettingsCard Header="{x:Bind strings:Resources.AiOcrLingerHeading}" Description="{x:Bind strings:Resources.AiOcrLingerBody}"
                                        IsEnabled="{x:Bind ViewModel.IsInstalled, Mode=OneWay}">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE916;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
                     </controls:SettingsCard.HeaderIcon>
-
                     <NumberBox Width="120" Minimum="0" Maximum="240" SmallChange="1" LargeChange="5" SpinButtonPlacementMode="Inline"
                                Value="{x:Bind ViewModel.LingerMinutes, Mode=TwoWay}" />
                 </controls:SettingsCard>
 
+                <controls:SettingsCard Header="{x:Bind strings:Resources.AiOcrIdleHeading}" Description="{x:Bind strings:Resources.AiOcrIdleBody}"
+                                       IsEnabled="{x:Bind ViewModel.IsInstalled, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE708;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <NumberBox Width="120" Minimum="0" Maximum="1440" SmallChange="5" LargeChange="30" SpinButtonPlacementMode="Inline"
+                               Value="{x:Bind ViewModel.IdleUnloadMinutes, Mode=TwoWay}" />
+                </controls:SettingsCard>
+
                 <!-- Storage -->
-                <controls:SettingsCard Header="{x:Bind strings:Resources.AiOcrStorageHeading}" Description="{x:Bind ViewModel.InstallFolderPath}">
+                <controls:SettingsCard Header="{x:Bind strings:Resources.AiOcrStorageHeading}" Description="{x:Bind ViewModel.StorageDescription, Mode=OneWay}">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xEDA2;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
                     </controls:SettingsCard.HeaderIcon>
 
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button Content="{x:Bind strings:Resources.AiOcrOpenFolder}" Command="{x:Bind ViewModel.OpenFolderAsyncCommand}" />
+                        <Button Content="{x:Bind strings:Resources.AiSetupChangeLocation}" Click="ButtonChangeInstallLocation_Click"
+                                Visibility="{x:Bind ViewModel.CanChangeInstallLocation, Mode=OneWay}" />
+                        <Button Content="{x:Bind strings:Resources.AiSetupDefaultLocation}" Command="{x:Bind ViewModel.ResetInstallLocationCommand}"
+                                Visibility="{x:Bind ViewModel.IsCustomInstallLocation, Mode=OneWay}" IsEnabled="{x:Bind ViewModel.CanChangeInstallLocation, Mode=OneWay}" />
                         <Button Content="{x:Bind strings:Resources.AiOcrUninstall}"
                                 IsEnabled="{x:Bind ViewModel.CanUninstall, Mode=OneWay}"
                                 Command="{x:Bind ViewModel.UninstallAsyncCommand}" />

@@ -226,6 +226,27 @@ public sealed class ImageHelperTests
     }
 
     [TestMethod]
+    [DataRow(1)]
+    [DataRow(2)]
+    [DataRow(3)]
+    [DataRow(-1)]
+    public void Rotate_MovesPixelsClockwise(int quarterTurns)
+    {
+        BgraImage image = BgraImage.Filled(3, 2, 0, 0, 0);
+        TestImages.Set(image, 0, 0, 255, 0, 0);  // top left red
+        TestImages.Set(image, 2, 1, 0, 0, 255);  // bottom right blue
+
+        BgraImage rotated = ImageResize.Rotate(image, quarterTurns);
+
+        int turns = ((quarterTurns % 4) + 4) % 4;
+        (int x, int y) red = turns switch { 1 => (1, 0), 2 => (2, 1), _ => (0, 2) };
+        (int x, int y) blue = turns switch { 1 => (0, 2), 2 => (0, 0), _ => (1, 0) };
+        Assert.AreEqual(turns % 2 == 1 ? 2 : 3, rotated.Width);
+        Assert.AreEqual(((byte)255, (byte)0, (byte)0), TestImages.Get(rotated, red.x, red.y));
+        Assert.AreEqual(((byte)0, (byte)0, (byte)255), TestImages.Get(rotated, blue.x, blue.y));
+    }
+
+    [TestMethod]
     public void Png_HasValidSignatureAndChunks()
     {
         byte[] png = PngImageEncoder.Encode(TestImages.Page(64, 48, withPicture: false));

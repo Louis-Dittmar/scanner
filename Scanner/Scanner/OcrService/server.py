@@ -6,24 +6,28 @@ via the SCANNER_OCR_TOKEN environment variable in the X-Token header of every re
 Lifecycle:
 - The model is loaded in a background thread, /health reports the progress meanwhile.
 - The service watches the app process (--parent-pid). Once the app is gone, it keeps running for --linger
-  seconds, so reopening the app reuses the loaded model, then exits.
-- Without requests for --idle-timeout seconds it exits as well; the app starts it again when needed.
+  seconds (0 = stop right away), then exits and frees the GPU memory.
+- With --idle-timeout > 0 it also exits after that many seconds without requests; the app starts it again
+  when needed.
 
 Endpoints:
-- GET  /health    {"state": "starting|downloading|loading|ready|error", "message", "device", "dtype"}
-- POST /ocr       body: PNG/JPEG bytes -> {"markdown", "raw", "regions": [{"label", "box": [x1, y1, x2, y2]}]}
-                  boxes are normalized to 0..1000 relative to the image size
-- POST /shutdown  ends the service
+- GET  /health           {"state": "starting|downloading|loading|ready|error", "message", "device", "dtype"}
+- POST /ocr?mode=gundam  body: PNG/JPEG bytes -> {"width", "height", "raw", "seconds"}
+                         raw is the unprocessed model output with its <|det|> position markers; the app parses it
+                         (Scanner.Core UnlimitedOcrParser). mode is "gundam" (default, best for single pages) or "base".
+- POST /shutdown         ends the service
+
+--fake-model answers with a fixed result without PyTorch, for tests of everything around the model.
 """
 
 from __future__ import annotations
 
 import argparse
-import ast
+import contextlib
 import hmac
+import io
 import json
 import os
-import re
 import shutil
 import sys
 import tempfile
@@ -41,6 +45,18 @@ MAX_LENGTH = 16384
 NGRAM_SIZE = 35
 NGRAM_WINDOW = 128
 MAX_IMAGE_BYTES = 80 * 1024 * 1024
+
+# the two single image configurations from the model card
+MODES = {
+    "gundam": {"base_size": 1024, "image_size": 640, "crop_mode": True},
+    "base": {"base_size": 1024, "image_size": 1024, "crop_mode": False},
+}
+
+FAKE_RESULT = (
+    "<|det|>title [80, 40, 920, 90]<|/det|># Testdokument\n"
+    "<|det|>text [80, 120, 920, 300]<|/det|>Dies ist ein Ergebnis des Testmodus.\n"
+    "<|det|>image [100, 350, 500, 600]<|/det|>\n"
+)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -79,12 +95,17 @@ class ServiceState:
 STATE = ServiceState()
 MODEL: Any = None
 TOKENIZER: Any = None
+FAKE_MODEL = False
 MODEL_LOCK = threading.Lock()
 SHUTDOWN = threading.Event()
 
 
+LOG_STREAM: Any = sys.stdout
+
+
 def log(text: str) -> None:
-    print(f"[{time.strftime('%H:%M:%S')}] {text}", flush=True)
+    # explicit stream: stdout is temporarily captured while the model runs
+    print(f"[{time.strftime('%H:%M:%S')}] {text}", file=LOG_STREAM, flush=True)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -108,6 +129,12 @@ def force_float16_autocast() -> None:
 
 def load_model() -> None:
     global MODEL, TOKENIZER
+    if FAKE_MODEL:
+        STATE.device = "fake"
+        STATE.dtype = "none"
+        STATE.set("ready", "fake model")
+        return
+
     try:
         STATE.set("loading", "Importing libraries")
         import torch
@@ -147,117 +174,58 @@ def load_model() -> None:
         STATE.set("error", f"{exc.__class__.__name__}: {exc}")
 
 
-def run_ocr(image_bytes: bytes) -> dict[str, Any]:
-    from PIL import Image
+def image_size(image_bytes: bytes) -> tuple[int, int]:
+    """Width and height from the PNG/JPEG header, without needing Pillow (the fake model runs without it)."""
+    if image_bytes[:8] == b"\x89PNG\r\n\x1a\n" and len(image_bytes) >= 24:
+        return int.from_bytes(image_bytes[16:20], "big"), int.from_bytes(image_bytes[20:24], "big")
+    try:
+        from PIL import Image
+
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            return image.size
+    except Exception:  # noqa: BLE001 - size is informational
+        return 0, 0
+
+
+def run_ocr(image_bytes: bytes, mode: str) -> dict[str, Any]:
+    width, height = image_size(image_bytes)
+    if FAKE_MODEL:
+        return {"width": width, "height": height, "raw": FAKE_RESULT}
 
     work_dir = Path(tempfile.mkdtemp(prefix="scanner_ocr_"))
     try:
         image_path = work_dir / "page.png"
         image_path.write_bytes(image_bytes)
-        with Image.open(image_path) as image:
-            width, height = image.size
+        config = MODES.get(mode, MODES["gundam"])
 
         with MODEL_LOCK:
+            captured = io.StringIO()
             try:
-                # eval_mode returns the decoded text instead of printing it through a streamer
-                returned = MODEL.infer(
-                    TOKENIZER,
-                    prompt=PROMPT,
-                    image_file=str(image_path),
-                    output_path=str(work_dir),
-                    base_size=1024,
-                    image_size=1024,
-                    crop_mode=False,
-                    save_results=False,
-                    eval_mode=True,
-                    max_length=MAX_LENGTH,
-                    no_repeat_ngram_size=NGRAM_SIZE,
-                    ngram_window=NGRAM_WINDOW,
-                    temperature=0.0,
-                )
+                # eval_mode returns the decoded text; older model code only streams it to stdout, so that is
+                # captured as a fallback
+                with contextlib.redirect_stdout(captured):
+                    returned = MODEL.infer(
+                        TOKENIZER,
+                        prompt=PROMPT,
+                        image_file=str(image_path),
+                        output_path=str(work_dir),
+                        save_results=False,
+                        eval_mode=True,
+                        max_length=MAX_LENGTH,
+                        no_repeat_ngram_size=NGRAM_SIZE,
+                        ngram_window=NGRAM_WINDOW,
+                        **config,
+                    )
             finally:
                 # the model temporarily disables its sliding window during generation
                 ring_window = getattr(MODEL.config, "_ring_window", None)
                 if ring_window is not None:
                     MODEL.config.sliding_window = ring_window
 
-        raw = returned if isinstance(returned, str) else ""
-
-        return {
-            "width": width,
-            "height": height,
-            "raw": raw,
-            "markdown": to_markdown(raw),
-            "regions": parse_regions(raw),
-        }
+        raw = returned if isinstance(returned, str) and returned.strip() else captured.getvalue()
+        return {"width": width, "height": height, "raw": raw}
     finally:
         shutil.rmtree(work_dir, ignore_errors=True)
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-# Output parsing
-# Model output: <|ref|>label<|/ref|><|det|>[[x1, y1, x2, y2], ...]<|/det|>content ... (coordinates 0..1000)
-# ----------------------------------------------------------------------------------------------------------------------
-_ELEMENT_RE = re.compile(
-    r"<\|ref\|>(?P<label>.*?)<\|/ref\|>\s*<\|det\|>(?P<coords>.*?)<\|/det\|>(?P<content>.*?)(?=<\|ref\|>|$)",
-    re.DOTALL,
-)
-_TAG_RE = re.compile(r"<\|/?(?:ref|det|grounding)\|>")
-_LEFTOVER_DET_RE = re.compile(r"<\|det\|>.*?<\|/det\|>", re.DOTALL)
-_NO_TEXT_LABELS = {"image", "figure", "picture"}
-
-
-def _parse_boxes(text: str) -> list[list[int]]:
-    match = re.search(r"\[.*\]", text or "", re.DOTALL)
-    if not match:
-        return []
-    try:
-        value = ast.literal_eval(match.group(0))
-    except (SyntaxError, ValueError):
-        return []
-    if isinstance(value, list) and len(value) == 4 and all(isinstance(v, (int, float)) for v in value):
-        value = [value]
-
-    boxes: list[list[int]] = []
-    for box in value if isinstance(value, list) else []:
-        if not isinstance(box, (list, tuple)) or len(box) != 4:
-            continue
-        try:
-            x1, y1, x2, y2 = (max(0, min(1000, round(float(v)))) for v in box)
-        except (TypeError, ValueError):
-            continue
-        if x2 > x1 and y2 > y1:
-            boxes.append([x1, y1, x2, y2])
-    return boxes
-
-
-def _clean(text: str) -> str:
-    text = _LEFTOVER_DET_RE.sub("\n", text)
-    text = _TAG_RE.sub("", text)
-    return text.replace("\\r\\n", "\n").replace("\\n", "\n").strip()
-
-
-def parse_regions(raw: str) -> list[dict[str, Any]]:
-    regions: list[dict[str, Any]] = []
-    for match in _ELEMENT_RE.finditer(raw or ""):
-        label = match.group("label").strip() or "text"
-        content = "" if label.casefold() in _NO_TEXT_LABELS else _clean(match.group("content"))
-        for box in _parse_boxes(match.group("coords")):
-            regions.append({"label": label, "box": box, "text": content})
-    return regions
-
-
-def to_markdown(raw: str) -> str:
-    def replace(match: re.Match[str]) -> str:
-        if match.group("label").strip().casefold() in _NO_TEXT_LABELS:
-            return "\n\n"
-        return "\n\n" + match.group("content")
-
-    text = _ELEMENT_RE.sub(replace, raw or "")
-    text = _clean(text)
-    text = re.sub(r"^\s*```(?:markdown|md|text)?\s*\n", "", text, flags=re.IGNORECASE)
-    text = re.sub(r"\n\s*```\s*$", "", text)
-    return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -285,7 +253,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self._authorized():
             self._send_json(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
             return
-        if self.path == "/health":
+        if self.path.partition("?")[0] == "/health":
             self._send_json(HTTPStatus.OK, STATE.snapshot())
         else:
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not found"})
@@ -295,12 +263,15 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
             return
 
-        if self.path == "/shutdown":
+        path, _, query = self.path.partition("?")
+        params = dict(part.split("=", 1) for part in query.split("&") if "=" in part)
+
+        if path == "/shutdown":
             self._send_json(HTTPStatus.OK, {"state": "stopping"})
             SHUTDOWN.set()
             return
 
-        if self.path != "/ocr":
+        if path != "/ocr":
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not found"})
             return
 
@@ -317,8 +288,9 @@ class Handler(BaseHTTPRequestHandler):
         image_bytes = self.rfile.read(length)
         try:
             started = time.monotonic()
-            result = run_ocr(image_bytes)
-            log(f"page analyzed in {time.monotonic() - started:.1f}s, {len(result['regions'])} regions")
+            result = run_ocr(image_bytes, params.get("mode", "gundam"))
+            result["seconds"] = round(time.monotonic() - started, 2)
+            log(f"page analyzed in {result['seconds']:.1f}s, {len(result['raw'])} characters")
             self._send_json(HTTPStatus.OK, result)
         except Exception as exc:  # noqa: BLE001 - reported to the app
             traceback.print_exc()
@@ -338,7 +310,30 @@ def is_process_alive(pid: int) -> bool:
 
         return psutil.pid_exists(pid)
     except ImportError:
+        pass
+
+    if os.name == "nt":
+        import ctypes
+
+        process_query_limited_information = 0x1000
+        still_active = 259
+        handle = ctypes.windll.kernel32.OpenProcess(process_query_limited_information, False, pid)
+        if not handle:
+            return False
+        try:
+            code = ctypes.c_ulong()
+            ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(code))
+            return code.value == still_active
+        finally:
+            ctypes.windll.kernel32.CloseHandle(handle)
+
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
         return True
+    return True
 
 
 def current_app_pid(state_file: Path, default_pid: int) -> int:
@@ -355,7 +350,7 @@ def watchdog(state_file: Path, initial_pid: int, linger: float, idle_timeout: fl
     watched_pid = initial_pid
     app_gone_since: float | None = None
 
-    while not SHUTDOWN.wait(5):
+    while not SHUTDOWN.wait(2):
         now = time.monotonic()
 
         pid = current_app_pid(state_file, watched_pid)
@@ -386,10 +381,14 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=0, help="0 picks a free port")
     parser.add_argument("--parent-pid", type=int, default=0)
     parser.add_argument("--state-file", type=Path, required=True, help="written once the port is known")
-    parser.add_argument("--linger", type=float, default=300, help="seconds to keep running after the app closed")
-    parser.add_argument("--idle-timeout", type=float, default=3600, help="seconds without requests until exit")
+    parser.add_argument("--linger", type=float, default=0, help="seconds to keep running after the app closed")
+    parser.add_argument("--idle-timeout", type=float, default=0, help="seconds without requests until exit, 0 = never")
+    parser.add_argument("--fake-model", action="store_true", help="answer with a fixed result, for tests")
     parser.add_argument("--log-file", type=Path, help="the service outlives the app, so it can't log into a pipe")
     args = parser.parse_args()
+
+    global FAKE_MODEL
+    FAKE_MODEL = args.fake_model
 
     if args.log_file:
         args.log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -398,6 +397,9 @@ def main() -> None:
         log_stream = open(args.log_file, "a", encoding="utf-8", buffering=1)  # noqa: SIM115 - lives as long as the process
         sys.stdout = log_stream
         sys.stderr = log_stream
+
+    global LOG_STREAM
+    LOG_STREAM = sys.stdout
 
     token = os.environ.get("SCANNER_OCR_TOKEN", "")
     if len(token) < 16:

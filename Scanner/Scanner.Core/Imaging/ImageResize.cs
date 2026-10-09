@@ -63,4 +63,39 @@ public static class ImageResize
         }
         return result;
     }
+
+    /// <summary>
+    /// Rotates clockwise by <paramref name="quarterTurns"/> * 90 degrees.
+    /// </summary>
+    public static BgraImage Rotate(BgraImage image, int quarterTurns)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        quarterTurns = ((quarterTurns % 4) + 4) % 4;
+        if (quarterTurns == 0)
+            return image;
+
+        int w = image.Width, h = image.Height;
+        bool swap = quarterTurns % 2 == 1;
+        BgraImage result = new(swap ? h : w, swap ? w : h);
+        int[] source = new int[w * h];
+        int[] target = new int[w * h];
+        Buffer.BlockCopy(image.Pixels, 0, source, 0, image.Pixels.Length);
+
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                int index = quarterTurns switch
+                {
+                    1 => x * h + (h - 1 - y),               // (x, y) -> (h - 1 - y, x)
+                    2 => (h - 1 - y) * w + (w - 1 - x),     // (x, y) -> (w - 1 - x, h - 1 - y)
+                    _ => (w - 1 - x) * h + y,               // (x, y) -> (y, w - 1 - x)
+                };
+                target[index] = source[y * w + x];
+            }
+        }
+
+        Buffer.BlockCopy(target, 0, result.Pixels, 0, result.Pixels.Length);
+        return result;
+    }
 }

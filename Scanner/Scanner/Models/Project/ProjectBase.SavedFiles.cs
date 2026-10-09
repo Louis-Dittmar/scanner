@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Scanner.Models.Interfaces;
+using Windows.Graphics.Imaging;
 using Windows.Storage;
 using Windows.Storage.Streams;
 
@@ -16,6 +18,12 @@ namespace Scanner.Models;
 /// A saved target file of a project, read into memory so it can be processed without holding project locks.
 /// </summary>
 public record SavedProjectFile(string FileName, byte[] Content, string ContentType, StorageFolder? Folder);
+
+/// <summary>
+/// The current image of a project page (with destructive effects such as filters, but before saving), read into
+/// memory. <paramref name="Rotation"/> still has to be applied.
+/// </summary>
+public record ProjectPageImage(byte[] Content, BitmapRotation Rotation);
 
 public abstract partial class ProjectBase
 {
@@ -79,6 +87,31 @@ public abstract partial class ProjectBase
         {
             projectObjectSemaphore.Release();
             saveSemaphore.Release();
+        }
+    }
+
+    /// <summary>
+    /// Reads the current image of every page, also if the project hasn't been saved yet (e.g. right after a scan).
+    /// </summary>
+    public async Task<List<ProjectPageImage>> ReadPageImagesAsync()
+    {
+        await projectObjectSemaphore.WaitAsync();
+        try
+        {
+            List<ProjectPageImage> result = [];
+            foreach (IProjectPage page in Pages.OrderBy(x => x.Index))
+            {
+                // the preview file is the source file, or a rendering including destructive effects
+                if (page.PreviewFile is not StorageFile file)
+                    continue;
+                BitmapRotation rotation = page is ImagePage imagePage ? imagePage.Rotation : BitmapRotation.None;
+                result.Add(new ProjectPageImage(await ReadAllBytesAsync(file), rotation));
+            }
+            return result;
+        }
+        finally
+        {
+            projectObjectSemaphore.Release();
         }
     }
 

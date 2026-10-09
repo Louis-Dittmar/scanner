@@ -2423,7 +2423,7 @@ Rest assured that your scans are never included in these reports.</value>
     <comment>Heading of the AI text recognition settings page.</comment>
   </data>
   <data name="SettingsAiOcrDescription" xml:space="preserve">
-    <value>Recognizes text, headings and tables with the local AI model Unlimited-OCR on your graphics card. After saving, Scanner additionally creates the selected outputs next to the original.</value>
+    <value>Recognizes text, headings, tables and pictures with the local AI model Unlimited-OCR on your graphics card. After a scan, Scanner makes the paper white, recognizes the text and saves a fully selectable PDF to your output folder.</value>
     <comment>Description of the AI text recognition settings page.</comment>
   </data>
   <data name="AiOcrStatusHeading" xml:space="preserve">
@@ -2495,43 +2495,35 @@ Rest assured that your scans are never included in these reports.</value>
     <comment>Button that stops the service.</comment>
   </data>
   <data name="AiOcrEnableHeading" xml:space="preserve">
-    <value>Use AI text recognition</value>
-    <comment>Header of the enable switch.</comment>
+    <value>Load the model when the app starts</value>
+    <comment>Header of the toggle that starts the AI service with the app.</comment>
   </data>
   <data name="AiOcrEnableBody" xml:space="preserve">
-    <value>Starts with the app and creates the AI outputs after saving.</value>
-    <comment>Description of the enable switch.</comment>
+    <value>The model is loaded while the app starts and unloaded when it closes, so documents are processed without waiting.</value>
+    <comment>Description of the toggle that starts the AI service with the app.</comment>
   </data>
   <data name="AiOcrOutputsHeading" xml:space="preserve">
-    <value>Outputs</value>
-    <comment>Header of the output options.</comment>
+    <value>Finished document</value>
+    <comment>Header of the output settings.</comment>
   </data>
   <data name="AiOcrOutputsBody" xml:space="preserve">
-    <value>Created in addition to the original file, in the same folder.</value>
-    <comment>Description of the output options.</comment>
+    <value>What is saved after processing.</value>
+    <comment>Description of the output settings.</comment>
   </data>
   <data name="AiOcrOutputMarkdownHeading" xml:space="preserve">
-    <value>Markdown file (.md)</value>
-    <comment>Output option.</comment>
+    <value>Also save the text as Markdown (.md)</value>
+    <comment>Toggle for the Markdown output.</comment>
   </data>
   <data name="AiOcrOutputMarkdownBody" xml:space="preserve">
-    <value>The recognized text including headings and tables.</value>
-    <comment>Description of the Markdown output.</comment>
-  </data>
-  <data name="AiOcrOutputPdfHeading" xml:space="preserve">
-    <value>Searchable PDF (KI)</value>
-    <comment>Output option.</comment>
-  </data>
-  <data name="AiOcrOutputPdfBody" xml:space="preserve">
-    <value>The scanned pages with the AI text as an invisible, searchable layer.</value>
-    <comment>Description of the PDF output.</comment>
+    <value>The recognized text including headings and tables, next to the PDF.</value>
+    <comment>Description of the Markdown output toggle.</comment>
   </data>
   <data name="AiOcrLingerHeading" xml:space="preserve">
-    <value>Keep running after closing (minutes)</value>
+    <value>Keep loaded after closing (minutes)</value>
     <comment>Header of the linger setting.</comment>
   </data>
   <data name="AiOcrLingerBody" xml:space="preserve">
-    <value>Keeps the model loaded for a while, so reopening the app is fast. Takes effect the next time the service starts.</value>
+    <value>0 unloads the model together with the app and frees the graphics memory right away. A few minutes make reopening the app faster.</value>
     <comment>Description of the linger setting.</comment>
   </data>
   <data name="AiOcrStorageHeading" xml:space="preserve">
@@ -2551,23 +2543,387 @@ Rest assured that your scans are never included in these reports.</value>
     <comment>Header of the requirements card.</comment>
   </data>
   <data name="AiOcrRequirementsBody" xml:space="preserve">
-    <value>An NVIDIA graphics card with CUDA support (e.g. RTX 2080 Ti or newer) and about 10 GB of free disk space for Python, PyTorch and the model.</value>
-    <comment>Description of the requirements.</comment>
+    <value>An NVIDIA graphics card with CUDA support (e.g. RTX 2080 Ti or newer, 8 GB of graphics memory or more) and about 14 GB of free disk space for Python, PyTorch and the model.</value>
+    <comment>Requirements of the AI text recognition.</comment>
   </data>
-  <data name="AiOcrExportDoneHeading" xml:space="preserve">
-    <value>AI text recognition finished</value>
-    <comment>Notification after the AI outputs were created.</comment>
+  <data name="AiOcrDocumentHeading" xml:space="preserve">
+    <value>Documents</value>
+    <comment>Section header on the AI settings page.</comment>
   </data>
-  <data name="AiOcrExportDoneBody" xml:space="preserve">
-    <value>The AI outputs have been saved next to the original.</value>
-    <comment>Notification after the AI outputs were created.</comment>
+  <data name="AiOcrAutoProcessHeading" xml:space="preserve">
+    <value>Process automatically after scanning</value>
+    <comment>Toggle for automatic processing.</comment>
   </data>
-  <data name="AiOcrExportFailedHeading" xml:space="preserve">
-    <value>AI text recognition failed</value>
-    <comment>Notification if creating the AI outputs failed.</comment>
+  <data name="AiOcrAutoProcessBody" xml:space="preserve">
+    <value>As soon as a scan is finished, the document window opens and the PDF is created; saving the project isn't necessary.</value>
+    <comment>Description of the automatic processing toggle.</comment>
   </data>
-  <data name="AiOcrExportFailedBody" xml:space="preserve">
-    <value>The original was saved, but the AI outputs couldn't be created.</value>
-    <comment>Notification if creating the AI outputs failed.</comment>
+  <data name="AiOcrImageHeading" xml:space="preserve">
+    <value>Image cleanup</value>
+    <comment>Header of the image cleanup settings.</comment>
+  </data>
+  <data name="AiOcrImageBody" xml:space="preserve">
+    <value>Only applied when a document is detected on the scan; photos stay as they are.</value>
+    <comment>Description of the image cleanup settings.</comment>
+  </data>
+  <data name="AiOcrWhiteBody" xml:space="preserve">
+    <value>Makes yellowed or shadowed paper white. Text stays dark, pictures only get a gentle white balance.</value>
+    <comment>Description of the white correction toggle.</comment>
+  </data>
+  <data name="AiOcrCropBody" xml:space="preserve">
+    <value>Cuts away the scanner lid around smaller documents such as receipts.</value>
+    <comment>Description of the crop toggle.</comment>
+  </data>
+  <data name="AiOcrPdfModeBody" xml:space="preserve">
+    <value>Rebuilt: clean pages with real text and the pictures from the scan. Scan: the cleaned scan with an invisible text layer.</value>
+    <comment>Description of the PDF mode setting.</comment>
+  </data>
+  <data name="AiOcrOutputFolderHeading" xml:space="preserve">
+    <value>Output folder</value>
+    <comment>Header of the output folder setting.</comment>
+  </data>
+  <data name="AiOcrModelHeading" xml:space="preserve">
+    <value>Model</value>
+    <comment>Section header on the AI settings page.</comment>
+  </data>
+  <data name="AiOcrIdleHeading" xml:space="preserve">
+    <value>Unload when unused (minutes)</value>
+    <comment>Header of the idle unload setting.</comment>
+  </data>
+  <data name="AiOcrIdleBody" xml:space="preserve">
+    <value>Frees the graphics memory while the app stays open. 0 keeps the model loaded until the app is closed. Takes effect the next time the model is loaded.</value>
+    <comment>Description of the idle unload setting.</comment>
+  </data>
+  <data name="AiSetupHeading" xml:space="preserve">
+    <value>Set up AI text recognition?</value>
+    <comment>Title of the first-run AI setup dialog.</comment>
+  </data>
+  <data name="AiSetupBody" xml:space="preserve">
+    <value>Scanner can turn your scans into clean, fully selectable PDFs with the local AI model Unlimited-OCR. For this, Python, PyTorch and the model are downloaded once.</value>
+    <comment>Body of the AI setup dialog.</comment>
+  </data>
+  <data name="AiSetupPointGpu" xml:space="preserve">
+    <value>Needs an NVIDIA graphics card with CUDA (8 GB of graphics memory or more recommended).</value>
+    <comment>Bullet point in the AI setup dialog.</comment>
+  </data>
+  <data name="AiSetupPointLocal" xml:space="preserve">
+    <value>Everything runs on this PC, your documents never leave it.</value>
+    <comment>Bullet point in the AI setup dialog.</comment>
+  </data>
+  <data name="AiSetupPointLifecycle" xml:space="preserve">
+    <value>The model is loaded when the app starts and unloaded when it closes.</value>
+    <comment>Bullet point in the AI setup dialog.</comment>
+  </data>
+  <data name="AiSetupLocationHeading" xml:space="preserve">
+    <value>Location</value>
+    <comment>Header of the location box in the AI setup dialog.</comment>
+  </data>
+  <data name="AiSetupSpace" xml:space="preserve">
+    <value>Needs about {0}, {1} free on this drive.</value>
+    <comment>{0} required size, {1} free space.</comment>
+  </data>
+  <data name="AiSetupSpaceUnknown" xml:space="preserve">
+    <value>Needs about {0}.</value>
+    <comment>{0} required size.</comment>
+  </data>
+  <data name="AiSetupChangeLocation" xml:space="preserve">
+    <value>Change…</value>
+    <comment>Button to pick another folder.</comment>
+  </data>
+  <data name="AiSetupDefaultLocation" xml:space="preserve">
+    <value>Use default</value>
+    <comment>Button to go back to the default folder.</comment>
+  </data>
+  <data name="AiSetupRemovalDefault" xml:space="preserve">
+    <value>Removed together with the app, or anytime in Settings › AI text recognition › Remove.</value>
+    <comment>How to remove an installation at the default location.</comment>
+  </data>
+  <data name="AiSetupRemovalCustom" xml:space="preserve">
+    <value>Remove it anytime in Settings › AI text recognition › Remove; uninstalling the app doesn't delete this folder.</value>
+    <comment>How to remove an installation at a custom location.</comment>
+  </data>
+  <data name="AiSetupNotEnoughSpace" xml:space="preserve">
+    <value>There may not be enough free space on this drive. Choose another location or free up space.</value>
+    <comment>Warning in the AI setup dialog.</comment>
+  </data>
+  <data name="AiSetupDontAsk" xml:space="preserve">
+    <value>Don't ask again</value>
+    <comment>Checkbox in the AI setup dialog.</comment>
+  </data>
+  <data name="AiSetupStart" xml:space="preserve">
+    <value>Set up</value>
+    <comment>Primary button of the AI setup dialog.</comment>
+  </data>
+  <data name="AiSetupLater" xml:space="preserve">
+    <value>Later</value>
+    <comment>Close button of the AI setup dialog.</comment>
+  </data>
+  <data name="AiSetupStartedHeading" xml:space="preserve">
+    <value>Setting up AI text recognition</value>
+    <comment>Notification when the setup starts.</comment>
+  </data>
+  <data name="AiSetupStartedBody" xml:space="preserve">
+    <value>This takes a few minutes and continues in the background. Progress: Settings › AI text recognition.</value>
+    <comment>Notification when the setup starts.</comment>
+  </data>
+  <data name="AiSetupDoneHeading" xml:space="preserve">
+    <value>AI text recognition is set up</value>
+    <comment>Notification when the setup is done.</comment>
+  </data>
+  <data name="AiSetupDoneBody" xml:space="preserve">
+    <value>The model is now downloaded once (about 7 GB) and loaded. New scans are processed automatically.</value>
+    <comment>Notification when the setup is done.</comment>
+  </data>
+  <data name="CreateAiDocument" xml:space="preserve">
+    <value>Create AI document</value>
+    <comment>Project menu entry that opens the document window.</comment>
+  </data>
+  <data name="DocumentWindowTitle" xml:space="preserve">
+    <value>AI document</value>
+    <comment>Title of the document window.</comment>
+  </data>
+  <data name="DocumentStepLoad" xml:space="preserve">
+    <value>Pages</value>
+    <comment>Step 1 of the document processing.</comment>
+  </data>
+  <data name="DocumentStepWhite" xml:space="preserve">
+    <value>White correction</value>
+    <comment>Step 2 of the document processing.</comment>
+  </data>
+  <data name="DocumentStepRecognize" xml:space="preserve">
+    <value>Text recognition</value>
+    <comment>Step 3 of the document processing.</comment>
+  </data>
+  <data name="DocumentStepPdf" xml:space="preserve">
+    <value>PDF</value>
+    <comment>Step 4 of the document processing.</comment>
+  </data>
+  <data name="DocumentStepSave" xml:space="preserve">
+    <value>Saved</value>
+    <comment>Step 5 of the document processing.</comment>
+  </data>
+  <data name="DocumentStatusLoading" xml:space="preserve">
+    <value>Loading pages…</value>
+    <comment>Status text.</comment>
+  </data>
+  <data name="DocumentStatusNeedsSetup" xml:space="preserve">
+    <value>AI text recognition isn't set up yet</value>
+    <comment>Status text.</comment>
+  </data>
+  <data name="DocumentStatusComposing" xml:space="preserve">
+    <value>Creating PDF…</value>
+    <comment>Status text.</comment>
+  </data>
+  <data name="DocumentStatusSaving" xml:space="preserve">
+    <value>Saving…</value>
+    <comment>Status text.</comment>
+  </data>
+  <data name="DocumentStatusDone" xml:space="preserve">
+    <value>Saved as {0}</value>
+    <comment>{0} file name.</comment>
+  </data>
+  <data name="DocumentStatusCancelled" xml:space="preserve">
+    <value>Cancelled</value>
+    <comment>Status text.</comment>
+  </data>
+  <data name="DocumentStatusPage" xml:space="preserve">
+    <value>Page {0} of {1}</value>
+    <comment>{0} page number, {1} page count.</comment>
+  </data>
+  <data name="DocumentPageWaiting" xml:space="preserve">
+    <value>Waiting</value>
+    <comment>State of a page.</comment>
+  </data>
+  <data name="DocumentPageDetecting" xml:space="preserve">
+    <value>Detecting document…</value>
+    <comment>State of a page.</comment>
+  </data>
+  <data name="DocumentPageWhite" xml:space="preserve">
+    <value>Making the paper white…</value>
+    <comment>State of a page.</comment>
+  </data>
+  <data name="DocumentPageRecognizing" xml:space="preserve">
+    <value>Recognizing text…</value>
+    <comment>State of a page.</comment>
+  </data>
+  <data name="DocumentPageRecognized" xml:space="preserve">
+    <value>{0} areas recognized in {1:0.0} s</value>
+    <comment>{0} number of areas, {1} seconds.</comment>
+  </data>
+  <data name="DocumentDetectionNone" xml:space="preserve">
+    <value>No document detected, the scan stays unchanged</value>
+    <comment>Result of the document detection.</comment>
+  </data>
+  <data name="DocumentDetectionFound" xml:space="preserve">
+    <value>Document detected</value>
+    <comment>Result of the document detection.</comment>
+  </data>
+  <data name="DocumentDetectionCropped" xml:space="preserve">
+    <value>Document detected and cropped</value>
+    <comment>Result of the document detection.</comment>
+  </data>
+  <data name="DocumentDetectionWhite" xml:space="preserve">
+    <value>Document detected, paper made white</value>
+    <comment>Result of the document detection.</comment>
+  </data>
+  <data name="DocumentDetectionCroppedWhite" xml:space="preserve">
+    <value>Document detected, cropped and paper made white</value>
+    <comment>Result of the document detection.</comment>
+  </data>
+  <data name="DocumentErrorReadingPages" xml:space="preserve">
+    <value>The pages couldn't be read</value>
+    <comment>Error.</comment>
+  </data>
+  <data name="DocumentErrorProcessing" xml:space="preserve">
+    <value>Processing failed</value>
+    <comment>Error.</comment>
+  </data>
+  <data name="DocumentErrorPdf" xml:space="preserve">
+    <value>The PDF couldn't be created</value>
+    <comment>Error.</comment>
+  </data>
+  <data name="DocumentDoneHeading" xml:space="preserve">
+    <value>Document saved</value>
+    <comment>Success message.</comment>
+  </data>
+  <data name="DocumentPageCounter" xml:space="preserve">
+    <value>Page {0} / {1}</value>
+    <comment>{0} page number, {1} page count.</comment>
+  </data>
+  <data name="DocumentPreviousPage" xml:space="preserve">
+    <value>Previous page</value>
+    <comment>Tooltip.</comment>
+  </data>
+  <data name="DocumentNextPage" xml:space="preserve">
+    <value>Next page</value>
+    <comment>Tooltip.</comment>
+  </data>
+  <data name="DocumentShowOriginal" xml:space="preserve">
+    <value>Original</value>
+    <comment>Toggle to show the unprocessed scan.</comment>
+  </data>
+  <data name="DocumentShowRegions" xml:space="preserve">
+    <value>Recognized areas</value>
+    <comment>Toggle for the area overlay.</comment>
+  </data>
+  <data name="DocumentTabText" xml:space="preserve">
+    <value>Text</value>
+    <comment>Tab.</comment>
+  </data>
+  <data name="DocumentTabRegions" xml:space="preserve">
+    <value>Areas</value>
+    <comment>Tab.</comment>
+  </data>
+  <data name="DocumentTabPdf" xml:space="preserve">
+    <value>PDF</value>
+    <comment>Tab.</comment>
+  </data>
+  <data name="DocumentTextPlaceholder" xml:space="preserve">
+    <value>The recognized text appears here.</value>
+    <comment>Placeholder.</comment>
+  </data>
+  <data name="DocumentCopyText" xml:space="preserve">
+    <value>Copy text</value>
+    <comment>Button.</comment>
+  </data>
+  <data name="DocumentPdfPlaceholder" xml:space="preserve">
+    <value>The finished PDF appears here. Its text can be selected, copied and searched.</value>
+    <comment>Placeholder.</comment>
+  </data>
+  <data name="DocumentEmptyHeading" xml:space="preserve">
+    <value>No document yet</value>
+    <comment>Empty state.</comment>
+  </data>
+  <data name="DocumentEmptyBody" xml:space="preserve">
+    <value>Scan a document: it's processed automatically. Or create the AI document for the open project.</value>
+    <comment>Empty state.</comment>
+  </data>
+  <data name="DocumentProcessCurrent" xml:space="preserve">
+    <value>Process open project</value>
+    <comment>Button.</comment>
+  </data>
+  <data name="DocumentNeedsSetupHeading" xml:space="preserve">
+    <value>AI text recognition isn't set up yet</value>
+    <comment>Info bar.</comment>
+  </data>
+  <data name="DocumentNeedsSetupBody" xml:space="preserve">
+    <value>Set it up once, then process this document again.</value>
+    <comment>Info bar.</comment>
+  </data>
+  <data name="DocumentOpenAiSettings" xml:space="preserve">
+    <value>Settings</value>
+    <comment>Button.</comment>
+  </data>
+  <data name="DocumentOptionsChanged" xml:space="preserve">
+    <value>Process the document again to apply the changed options.</value>
+    <comment>Info bar.</comment>
+  </data>
+  <data name="DocumentOptionWhite" xml:space="preserve">
+    <value>White correction</value>
+    <comment>Option.</comment>
+  </data>
+  <data name="DocumentOptionCrop" xml:space="preserve">
+    <value>Crop to document</value>
+    <comment>Option.</comment>
+  </data>
+  <data name="DocumentOptionPdfMode" xml:space="preserve">
+    <value>PDF</value>
+    <comment>Option.</comment>
+  </data>
+  <data name="DocumentPdfModeReconstructed" xml:space="preserve">
+    <value>Rebuilt (text + pictures)</value>
+    <comment>PDF mode.</comment>
+  </data>
+  <data name="DocumentPdfModeScan" xml:space="preserve">
+    <value>Scan with text layer</value>
+    <comment>PDF mode.</comment>
+  </data>
+  <data name="DocumentReprocess" xml:space="preserve">
+    <value>Process again</value>
+    <comment>Button.</comment>
+  </data>
+  <data name="DocumentOpenFolder" xml:space="preserve">
+    <value>Show in folder</value>
+    <comment>Button.</comment>
+  </data>
+  <data name="DocumentOpenPdf" xml:space="preserve">
+    <value>Open PDF</value>
+    <comment>Button.</comment>
+  </data>
+  <data name="RegionKindText" xml:space="preserve">
+    <value>Text</value>
+    <comment>Kind of a recognized area.</comment>
+  </data>
+  <data name="RegionKindTitle" xml:space="preserve">
+    <value>Heading</value>
+    <comment>Kind of a recognized area.</comment>
+  </data>
+  <data name="RegionKindList" xml:space="preserve">
+    <value>List</value>
+    <comment>Kind of a recognized area.</comment>
+  </data>
+  <data name="RegionKindTable" xml:space="preserve">
+    <value>Table</value>
+    <comment>Kind of a recognized area.</comment>
+  </data>
+  <data name="RegionKindImage" xml:space="preserve">
+    <value>Picture</value>
+    <comment>Kind of a recognized area.</comment>
+  </data>
+  <data name="RegionKindFormula" xml:space="preserve">
+    <value>Formula</value>
+    <comment>Kind of a recognized area.</comment>
+  </data>
+  <data name="RegionKindCaption" xml:space="preserve">
+    <value>Caption</value>
+    <comment>Kind of a recognized area.</comment>
+  </data>
+  <data name="RegionKindHeader" xml:space="preserve">
+    <value>Header</value>
+    <comment>Kind of a recognized area.</comment>
+  </data>
+  <data name="RegionKindFooter" xml:space="preserve">
+    <value>Footer</value>
+    <comment>Kind of a recognized area.</comment>
   </data>
 </root>

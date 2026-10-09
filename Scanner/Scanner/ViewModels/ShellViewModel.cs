@@ -167,7 +167,7 @@ partial class ShellViewModel : ObservableRecipient, IDisposable
 
         ((App)Application.Current).MainWindow.Closed += MainWindow_Closed;
 
-        if (!SettingsService.SetupCompleted && SentryService != null)
+        if (!SettingsService.SetupCompleted && SentryService != null && !App.IsUiTestMode)
             ShowSetupDialog();
     }
 

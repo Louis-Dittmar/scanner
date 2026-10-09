@@ -12,4 +12,6 @@
     <Deploy />
   </Project>
   <Project Path="ScannerTests/ScannerTests.csproj" Id="17083181-a4f6-4f86-81f3-e73e83450d82" />
+  <Project Path="Scanner.Core/Scanner.Core.csproj" />
+  <Project Path="ScannerCoreTests/ScannerCoreTests.csproj" />
 </Solution>

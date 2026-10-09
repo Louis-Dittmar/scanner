@@ -95,7 +95,7 @@ public partial class App : Application
             .AddSingleton<ITemplatesService, TemplatesService>()
             .AddSingleton<IPaperlessService, PaperlessService>()
             .AddSingleton<IAiOcrService, AiOcrService>()
-            .AddSingleton<IAiOcrExportService, AiOcrExportService>()
+            .AddSingleton<IDocumentPipelineService, DocumentPipelineService>()
             .BuildServiceProvider());
 
         WeakReferenceMessenger.Default.Register<MainWindowClosingMessage>(this, (r, m) =>
@@ -116,6 +116,7 @@ public partial class App : Application
     {
         // get the activation args
         var appArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
+        ReadForkLaunchArguments(args.Arguments);
 
         // get or register the main instance
         var mainInstance = AppInstance.FindOrRegisterForKey("main");

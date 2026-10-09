@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Scanner.Views"
+    xmlns:tests="using:Scanner.Tests"
     xmlns:animatedvisuals="using:Microsoft.UI.Xaml.Controls.AnimatedVisuals"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -539,6 +540,11 @@
                             <MenuFlyoutItem Text="{x:Bind strings:Resources.ShowInFileExplorer}" Width="{x:Bind ProjectFlyoutWidth, Mode=OneWay}" Command="{x:Bind ViewModel.ShowInFileExplorerAsyncCommand}">
                                 <MenuFlyoutItem.Icon>
                                     <FontIcon Glyph="&#xE8DA;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutItem Text="{x:Bind strings:Resources.CreateAiDocument}" Width="{x:Bind ProjectFlyoutWidth, Mode=OneWay}" Command="{x:Bind ViewModel.CreateAiDocumentAsyncCommand}" AutomationProperties.AutomationId="{x:Bind tests:ProjectMenu.CreateAiDocumentId}">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xE9D9;" FontSize="16" FontFamily="{StaticResource SymbolThemeFontFamily}" />
                                 </MenuFlyoutItem.Icon>
                             </MenuFlyoutItem>
                             <MenuFlyoutItem Text="{x:Bind strings:Resources.SendToPaperless}" Width="{x:Bind ProjectFlyoutWidth, Mode=OneWay}" Command="{x:Bind ViewModel.SendToPaperlessAsyncCommand}">
